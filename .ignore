@@ -1,0 +1,14 @@
+/.claude
+/.github
+/.recon
+/.vscode
+/CattleGame
+/Content
+/DerivedDataCache
+/docs
+/Intermediate
+/Saved
+/Scripts
+/Plugins/BlueprintSerializer/docs
+/Plugins/BlueprintSerializer/Intermediate
+/Plugins/BlueprintSerializer/Scripts

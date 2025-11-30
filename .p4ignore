@@ -1,0 +1,117 @@
+# Perforce Ignore File for Unreal Engine 5
+# Save as .p4ignore in your workspace root directory
+# P4IGNORE syntax differs from .gitignore - see comments for details
+
+# User-specific folders or temporary files that should not be versioned
+Saved/
+Intermediate/
+DerivedDataCache/
+FileOpenOrder/
+obj/
+
+# Build artifacts and temporary files
+Build/
+Binaries/
+*.pdb
+*-Debug.*
+
+# Visual Studio user settings
+.vs/
+*.sln
+*.VC.db
+
+# IDE and Editor specific
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+*.bak
+
+# UBT configuration
+Engine/Programs/UnrealBuildTool/
+
+# Generated project files
+GeneratedFiles/
+
+# MacOS specific
+*.app/
+*.xcworkspace/
+
+# iOS specific
+Intermediate/Build/
+
+# Unreal Automation Tool
+*.automation
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor config files that are user-specific
+EditorPerProjectUserSettings.ini
+
+
+# Do not ignore git files in the root of the repo.
+!/.git*
+
+# Do not ignore current project's `.uproject`.
+!/*.uproject
+
+# Do not ignore source, config and plugins dirs.
+!/Source/**
+!/Config/**
+!/Plugins/**
+
+# Only allow .uasset and .umap files from /Content dir.
+# They're tracked by git-lfs, don't forget to track other
+# files if adding them here.
+!/Content/**/*.uasset
+!/Content/**/*.umap
+
+# Allow any files from /RawContent dir.
+# Any file in /RawContent dir will be managed by git lfs.
+!/RawContent/**/*
+
+# OS/platform generated files.
+
+# Windows
+ehthumbs.db
+Thumbs.db
+
+# Mac OS X
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# vim
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+
+# Visual Studio
+.vs
+
+Binaries/...
+Intermediate/...
+Saved/...
+.vs/
+*.sln
+Plugins/Marketplace/...

@@ -1,0 +1,10 @@
+/.claude
+/.vscode
+/CattleGame
+/DerivedDataCache
+/Intermediate
+/MyProject
+/Saved
+Binaries/Win64/CattleGameEditor.target
+Binaries/Win64/
+Plugins/BlueprintSerializer/Scripts/blueprint_serializer/__pycache__/
