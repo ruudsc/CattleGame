@@ -1,0 +1,350 @@
+{
+	"metadata": {
+		"blueprintName": "BP_LassoProjectile",
+		"blueprintPath": "/Game/Characters/Player/Abilities/Lasso/BP_LassoProjectile.BP_LassoProjectile",
+		"blueprintType": "Normal",
+		"parentClass": "/Script/CattleGame.LassoProjectile",
+		"generatedClass": "BP_LassoProjectile_C",
+		"engineVersion": "++UE5+Release-5.6-CL-44394996",
+		"serializerVersion": "2.0.0",
+		"exportTimestamp": "2025.12.06-22.56.52"
+	},
+	"variables": [],
+	"eventGraphs": [
+		{
+			"graphName": "EventGraph",
+			"graphType": "EventGraph",
+			"graphGuid": "CEBEC69F43A74C87223EBFAB3D9FC20F",
+			"nodes": [
+				{
+					"nodeGuid": "5E6585364F22538D22A929B5F7AF4039",
+					"nodeClass": "K2Node_Event",
+					"nodeTitle": "Event BeginPlay",
+					"nodeComment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"positionX": 0,
+					"positionY": 0,
+					"pins": [
+						{
+							"pinId": "214FC04C42D2BCFBAD1645888E0F7C6E",
+							"pinName": "OutputDelegate",
+							"direction": "output",
+							"pinType": "delegate",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "C641F4014B99DE89282BAC916F942CFD",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference": {
+						"memberName": "ReceiveBeginPlay",
+						"memberParentClass": "/Script/Engine.Actor",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData": {
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "A6610FFC4181396EDB52A5A43246D53E",
+					"nodeClass": "K2Node_Event",
+					"nodeTitle": "Event ActorBeginOverlap",
+					"nodeComment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"positionX": 0,
+					"positionY": 208,
+					"pins": [
+						{
+							"pinId": "BAA6F2BE441FA00527CEA2A777B9FC0D",
+							"pinName": "OutputDelegate",
+							"direction": "output",
+							"pinType": "delegate",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "11633CE246685BAD896774B2B7F61ABF",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "83800B22400C307086485DA2A93AAE8F",
+							"pinName": "OtherActor",
+							"direction": "output",
+							"pinType": "object:/Script/Engine.Actor",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference": {
+						"memberName": "ReceiveActorBeginOverlap",
+						"memberParentClass": "/Script/Engine.Actor",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData": {
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "ECA02A5945B1EE3BEFC4809B93FA5789",
+					"nodeClass": "K2Node_Event",
+					"nodeTitle": "Event Tick",
+					"nodeComment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"positionX": 0,
+					"positionY": 416,
+					"pins": [
+						{
+							"pinId": "5A184CDA46148B3D8654AE98BA709964",
+							"pinName": "OutputDelegate",
+							"direction": "output",
+							"pinType": "delegate",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "E148F91E47E51876BC82F396AECB4EC3",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "D854409141E536B2A4924FB4315556AA",
+							"pinName": "DeltaSeconds",
+							"direction": "output",
+							"pinType": "real:float",
+							"defaultValue": "0.0",
+							"linkedTo": []
+						}
+					],
+					"functionReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference": {
+						"memberName": "ReceiveTick",
+						"memberParentClass": "/Script/Engine.Actor",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference": {
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData": {
+						"IsNodePure": "false"
+					}
+				}
+			]
+		}
+	],
+	"functions": [
+		{
+			"functionName": "UserConstructionScript",
+			"functionGuid": "A77BD2284D9EA78727B407B7015DF248",
+			"parameters": [],
+			"returnValues": [],
+			"graph": {
+				"graphName": "UserConstructionScript",
+				"graphType": "Function",
+				"graphGuid": "A77BD2284D9EA78727B407B7015DF248",
+				"nodes": [
+					{
+						"nodeGuid": "45D9B3CA4029DB4B662838B9434FF8FB",
+						"nodeClass": "K2Node_FunctionEntry",
+						"nodeTitle": "Construction Script",
+						"nodeComment": "",
+						"positionX": 0,
+						"positionY": 0,
+						"pins": [
+							{
+								"pinId": "9484979C461EC718AF499AB9269CBFA9",
+								"pinName": "then",
+								"direction": "output",
+								"pinType": "exec",
+								"defaultValue": "",
+								"linkedTo": []
+							}
+						],
+						"functionReference": {
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"eventReference": {
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"variableReference": {
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"delegateReference": {
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"targetClass": "",
+						"spawnClass": "",
+						"enumType": "",
+						"structType": "",
+						"macroReference": "",
+						"timelineName": "",
+						"literalValue": "",
+						"customEventName": "",
+						"inputActionName": "",
+						"inputKey": "",
+						"bIsPure": false,
+						"bIsLatent": false,
+						"bSelfContext": false,
+						"nodeSpecificData": {
+							"FunctionName": "UserConstructionScript",
+							"IsNodePure": "false"
+						}
+					}
+				]
+			},
+			"bIsStatic": false,
+			"bIsPure": false,
+			"bIsConst": false
+		}
+	],
+	"macros": [],
+	"components": [],
+	"implementedInterfaces": [],
+	"hardDependencies": [],
+	"softDependencies": []
+}

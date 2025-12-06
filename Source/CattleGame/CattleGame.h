@@ -5,3 +5,4 @@
 #include "CoreMinimal.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGASDebug, Warning, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogLasso, Log, All);

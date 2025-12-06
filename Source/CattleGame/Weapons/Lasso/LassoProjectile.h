@@ -4,19 +4,19 @@
 #include "GameFramework/Actor.h"
 #include "LassoProjectile.generated.h"
 
-class ALasso;
 class USphereComponent;
 class UProjectileMovementComponent;
-class UCableComponent;
+class UStaticMeshComponent;
+class ALasso;
 
 /**
- * Lasso Projectile - Flying rope loop that arcs toward targets.
+ * Lasso Projectile - Invisible arc projectile for hit detection.
  *
- * Features:
- * - Gravity arc (like a thrown rope)
- * - Aim assist cone for nearby targets
- * - Auto-retract on max range or missed
- * - Cable component for visual rope
+ * RDR2-style implementation:
+ * - No visible mesh during flight (throw animation is cosmetic)
+ * - Gravity-based arc trajectory
+ * - Aim assist with smooth target locking
+ * - On hit: notifies lasso weapon to snap loop onto target
  */
 UCLASS()
 class CATTLEGAME_API ALassoProjectile : public AActor
@@ -31,117 +31,101 @@ public:
 
 	// ===== PROJECTILE CONTROL =====
 
-	/** Launch the projectile with direction and speed */
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void Launch(const FVector &Direction, float Speed);
+	/** Launch the projectile with initial direction */
+	UFUNCTION(BlueprintCallable, Category = "Lasso|Projectile")
+	void Launch(const FVector& Direction);
 
-	/** Set lasso properties from weapon */
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void SetLassoProperties(float Speed, float MaxRange, float Gravity, float AimAssist, float AimAssistRange, float Retract);
+	/** Set owning lasso weapon for callbacks */
+	void SetLassoWeapon(ALasso* Weapon) { LassoWeapon = Weapon; }
 
-	/** Set reference to weapon for callbacks */
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void SetLassoWeapon(ALasso *Weapon);
+	UFUNCTION(BlueprintCallable, Category = "Lasso|Projectile")
+	AActor* GetAimAssistTarget() const { return AimAssistTarget.Get(); }
 
-	/** Start retracting back to owner */
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void StartRetract();
-
-	// ===== STATE QUERIES =====
-
-	/** Check if projectile is retracting */
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	bool IsRetracting() const { return bIsRetracting; }
-
-	/** Get the cable component for rope visuals */
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	UCableComponent *GetCableComponent() const { return CableComponent; }
+	/** Get the visual rope loop mesh */
+	UStaticMeshComponent* GetRopeLoopMesh() const { return RopeLoopMesh; }
 
 protected:
 	// ===== COMPONENTS =====
 
-	/** Root collision sphere */
+	/** Small collision sphere for hit detection */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	USphereComponent *CollisionSphere;
+	TObjectPtr<USphereComponent> HitSphere;
 
-	/** Mesh component for rope loop visualization */
+	/** Visual mesh for the flying rope loop (No Collision) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UStaticMeshComponent *MeshComponent;
+	TObjectPtr<UStaticMeshComponent> RopeLoopMesh;
 
-	/** Cable component for rope visual */
+	/** Projectile movement with gravity arc */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UCableComponent *CableComponent;
+	TObjectPtr<UProjectileMovementComponent> ProjectileMovement;
 
-	/** Movement component for projectile physics */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UProjectileMovementComponent *ProjectileMovement;
+	// ===== CONFIGURATION =====
 
-	// ===== LASSO PROPERTIES =====
+	/** Initial throw speed */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Config")
+	float InitialSpeed = 2500.0f;
 
-	/** Speed of lasso projectile */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso")
-	float LassoSpeed = 1500.0f;
-
-	/** Max range before lasso fails to hook */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso")
-	float LassoRange = 1000.0f;
-
-	/** Gravity scale for arc trajectory */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso")
+	/** Gravity scale for arc (0 = straight, 1 = full gravity) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Config")
 	float GravityScale = 0.5f;
 
-	/** Aim assist cone angle (degrees) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso")
-	float AimAssistAngle = 15.0f;
+	/** Max flight time before auto-miss */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Config")
+	float MaxFlightTime = 1.5f;
 
-	/** Aim assist max range */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso")
-	float AimAssistMaxDistance = 800.0f;
+	/** Aim assist detection radius */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|AimAssist")
+	float AimAssistRadius = 200.0f;
 
-	/** Retract speed when returning */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso")
-	float RetractSpeed = 2000.0f;
+	/** Aim assist cone half-angle in degrees */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|AimAssist")
+	float AimAssistAngle = 30.0f;
+
+	/** How fast to lerp toward aim assist target */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|AimAssist")
+	float AimAssistLerpSpeed = 8.0f;
+
+	/** Tag for valid lasso targets */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Config")
+	FName LassoableTag = FName("Target.Lassoable");
 
 	// ===== STATE =====
 
-	/** Whether projectile is retracting back to owner */
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "State")
-	bool bIsRetracting = false;
+	/** Reference to owning lasso weapon */
+	UPROPERTY()
+	TObjectPtr<ALasso> LassoWeapon;
 
-	/** Whether projectile has caught a target (prevents multiple catches) */
-	UPROPERTY(BlueprintReadOnly, Category = "State")
-	bool bHasCaughtTarget = false;
-
-	/** Reference back to weapon for state updates */
-	UPROPERTY(BlueprintReadOnly, Category = "State")
-	ALasso *LassoWeapon = nullptr;
-
-	/** Initial owner position (for range checking) */
-	FVector OwnerInitialLocation = FVector::ZeroVector;
-
-	/** Distance traveled so far */
-	float DistanceTraveled = 0.0f;
-
-	/** Current aim assist target (if any) */
+	/** Current aim assist target */
 	TWeakObjectPtr<AActor> AimAssistTarget;
 
+	/** Flight timer */
+	float FlightTime = 0.0f;
+
+	/** Has already hit something */
+	/** Has already hit something */
+	/** Has already hit something */
+	bool bHasHit = false;
+
 private:
-	/** Handle collision with world and targets */
+	/** Handle collision with actors */
 	UFUNCTION()
-	void OnCollision(UPrimitiveComponent *HitComponent, AActor *OtherActor, UPrimitiveComponent *OtherComp,
-					 FVector NormalImpulse, const FHitResult &Hit);
+	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, 
+		UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
-	/** Handle overlap start (for aim assist) */
+	/** Handle overlap (for aim assist detection) */
 	UFUNCTION()
-	void OnOverlapBegin(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor, UPrimitiveComponent *OtherComp,
-						int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult);
+	void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
-	/** Check for aim assist targets in cone */
-	void UpdateAimAssist();
+	/** Update aim assist - find and track best target */
+	void UpdateAimAssist(float DeltaTime);
 
-	/** Move toward retract target */
-	void TickRetract(float DeltaTime);
+	/** Check if actor is a valid lasso target */
+	bool IsValidTarget(AActor* Actor) const;
 
-	/** Get lifetime replicated properties */
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
+	/** Notify weapon of hit or miss */
+	void OnTargetHit(AActor* Target);
+	void OnTargetMissed();
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
