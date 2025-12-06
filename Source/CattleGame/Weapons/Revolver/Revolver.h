@@ -21,12 +21,6 @@ class CATTLEGAME_API ARevolver : public AHitscanWeaponBase
 public:
 	ARevolver();
 
-	// ===== SOCKET CONSTANTS =====
-
-	/** Socket name for revolver attachment on character skeleton */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Revolver|Attachment")
-	FName RevolverHandSocketName = FName(TEXT("HandGrip_R"));
-
 	// ===== WEAPON STATS =====
 
 	/** Maximum ammo this weapon can hold */
@@ -59,40 +53,12 @@ public:
 
 	// ===== STATE TRACKING =====
 
-	/** Is the weapon currently equipped and in use? */
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Revolver|State")
-	bool bIsEquipped = false;
-
 	/** Is the weapon currently being reloaded? */
 	UPROPERTY(ReplicatedUsing = OnRep_IsReloading, BlueprintReadOnly, Category = "Revolver|State")
 	bool bIsReloading = false;
 
 	/** Timestamp of last fire for fire rate limiting */
 	float LastFireTime = -9999.0f;
-
-	/** Muzzle flash particle effect */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|VFX")
-	UParticleSystem *MuzzleFlashEffect = nullptr;
-
-	/** Bullet impact effect at trace end point */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|VFX")
-	UParticleSystem *ImpactEffect = nullptr;
-
-	/** Fire sound effect */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Audio")
-	USoundBase *FireSound = nullptr;
-
-	/** Reload sound effect */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Audio")
-	USoundBase *ReloadSound = nullptr;
-
-	/** Empty magazine click sound */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Audio")
-	USoundBase *EmptySound = nullptr;
-
-	/** Whether to apply hit reactions to hit actors */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Damage")
-	bool bApplyHitReaction = true;
 
 	// ===== UTILITY FUNCTIONS =====
 
@@ -131,21 +97,6 @@ public:
 	void OnRep_IsReloading();
 
 public:
-	/**
-	 * Override EquipWeapon to attach to character hand
-	 */
-	virtual void EquipWeapon() override;
-
-	/**
-	 * Override UnequipWeapon to detach from character
-	 */
-	virtual void UnequipWeapon() override;
-
-	/**
-	 * Override Fire to ensure C++ implementation runs even if blueprint event is empty
-	 */
-	virtual void Fire() override;
-
 	// ===== MESH =====
 
 	/** Static mesh component for the revolver visual */
@@ -158,54 +109,11 @@ protected:
 	// Authoritative server processing for hitscan fire (trace and damage)
 	virtual void OnServerFire(const FVector &TraceStart, const FVector &TraceDir) override;
 
-	// Listen to weapon base events and implement game logic
-	UFUNCTION()
-	void OnWeaponEquipped_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
-	UFUNCTION()
-	void OnWeaponUnequipped_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
-	UFUNCTION()
-	void OnWeaponFired_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
-	UFUNCTION()
-	void OnReloadStarted_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
 private:
-	/**
-	 * Perform hitscan trace and apply damage to hit targets.
-	 * Called from OnFire via animation notify.
-	 */
-	UFUNCTION()
-	void PerformLineTrace();
-
 	/**
 	 * Apply damage to a hit actor.
 	 */
 	void ApplyDamageToActor(AActor *HitActor, const FVector &HitLocation, const FVector &ShotDirection);
-
-	/**
-	 * Play muzzle flash effect at weapon socket.
-	 */
-	void PlayMuzzleFlash();
-
-	/**
-	 * Play impact effect at trace hit location.
-	 */
-	void PlayImpactEffect(const FVector &ImpactLocation, const FVector &ImpactNormal);
-
-	/**
-	 * Play fire sound.
-	 */
-	void PlayFireSound();
-
-	/**
-	 * Get the trace start and direction from camera.
-	 */
-	void GetTraceStartAndDirection(FVector &OutStart, FVector &OutDirection) const;
-
-	/** Attach revolver mesh to character hand socket */
-	void AttachToCharacterHand();
 
 	/** Handle reload timer completion */
 	FTimerHandle ReloadTimerHandle;

@@ -20,10 +20,10 @@ class CATTLEGAME_API AHitscanWeaponBase : public AWeaponBase
 public:
     AHitscanWeaponBase() = default;
 
-protected:
     // Client-side entry: request a server fire while playing predicted cosmetics
     void RequestServerFireWithPrediction(const FVector &TraceStart, const FVector &TraceDir);
 
+protected:
     // Override in derived classes to implement authoritative trace/damage on server
     virtual void OnServerFire(const FVector &TraceStart, const FVector &TraceDir) PURE_VIRTUAL(AHitscanWeaponBase::OnServerFire, );
 

@@ -2,6 +2,7 @@
 #include "CattleCharacter.h"
 #include "CattleGame/Weapons/WeaponBase.h"
 #include "CattleGame/AbilitySystem/CattleAbilitySystemComponent.h"
+#include "CattleGame/AbilitySystem/Abilities/GA_WeaponEquip.h"
 #include "CattleGame/AbilitySystem/CattleGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "CattleGame/CattleGame.h"
@@ -29,8 +30,8 @@ void UInventoryComponent::BeginPlay()
 		return;
 	}
 
-	// Initialize default weapons if classes are set
-	if (DefaultRevolverClass || DefaultLassoClass || DefaultDynamiteClass || DefaultTrumpetClass)
+	// Initialize default weapons if DefaultInventory array has valid entries
+	if (DefaultInventory.Num() > 0)
 	{
 		InitializeDefaultWeapons();
 	}
@@ -70,7 +71,9 @@ bool UInventoryComponent::EquipWeapon(int32 SlotIndex)
 	{
 		// Revoke weapon abilities before unequipping
 		RevokeWeaponAbilities(EquippedWeapon);
-		EquippedWeapon->UnequipWeapon();
+
+		// Trigger unequip via GA_WeaponEquip ability
+		TriggerWeaponEquipAbility(EquippedWeapon, false);
 	}
 
 	// Equip new weapon (or set to nullptr for empty slot = unarmed state)
@@ -83,7 +86,9 @@ bool UInventoryComponent::EquipWeapon(int32 SlotIndex)
 			   GetOwner() && GetOwner()->HasAuthority() ? TEXT("SERVER") : TEXT("CLIENT"),
 			   EquippedWeapon, *EquippedWeapon->GetName(), SlotIndex,
 			   *GetNameSafe(GetOwner()));
-		EquippedWeapon->EquipWeapon();
+
+		// Trigger equip via GA_WeaponEquip ability
+		TriggerWeaponEquipAbility(WeaponToEquip, true);
 
 		// Grant weapon abilities after equipping
 		GrantWeaponAbilities(WeaponToEquip);
@@ -112,7 +117,9 @@ void UInventoryComponent::UnequipWeapon()
 		// Revoke weapon abilities before unequipping
 		RevokeWeaponAbilities(EquippedWeapon);
 
-		EquippedWeapon->UnequipWeapon();
+		// Trigger unequip via GA_WeaponEquip ability
+		TriggerWeaponEquipAbility(EquippedWeapon, false);
+
 		EquippedWeapon = nullptr;
 		CurrentEquippedSlot = -1;
 		OnWeaponUnequipped.Broadcast();
@@ -282,67 +289,46 @@ void UInventoryComponent::InitializeDefaultWeapons()
 
 	UE_LOG(LogGASDebug, Warning, TEXT("InitializeDefaultWeapons: Starting weapon initialization"));
 
-	// Spawn Revolver in slot 0
-	if (DefaultRevolverClass)
+	// Iterate through DefaultInventory array and spawn weapons for each slot
+	for (int32 SlotIndex = 0; SlotIndex < DefaultInventory.Num() && SlotIndex < (int32)EWeaponSlot::MaxSlots; ++SlotIndex)
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("InitializeDefaultWeapons: Spawning Revolver"));
-
-		AWeaponBase *Revolver = SpawnWeapon(DefaultRevolverClass);
-		if (Revolver)
+		TSubclassOf<AWeaponBase> WeaponClass = DefaultInventory[SlotIndex];
+		if (!WeaponClass)
 		{
-			UE_LOG(LogGASDebug, Warning, TEXT("InitializeDefaultWeapons: Adding Revolver to slot 0"));
-			AddWeaponToSlot(Revolver, (int32)EWeaponSlot::Revolver);
+			continue; // Skip empty slots
+		}
+
+		UE_LOG(LogGASDebug, Warning, TEXT("InitializeDefaultWeapons: Spawning weapon for slot %d"), SlotIndex);
+
+		AWeaponBase *NewWeapon = SpawnWeapon(WeaponClass);
+		if (NewWeapon)
+		{
+			UE_LOG(LogGASDebug, Warning, TEXT("InitializeDefaultWeapons: Adding weapon to slot %d"), SlotIndex);
+			AddWeaponToSlot(NewWeapon, SlotIndex);
 		}
 		else
 		{
-			UE_LOG(LogGASDebug, Error, TEXT("InitializeDefaultWeapons: Failed to spawn Revolver!"));
+			UE_LOG(LogGASDebug, Error, TEXT("InitializeDefaultWeapons: Failed to spawn weapon for slot %d!"), SlotIndex);
 		}
+	}
+
+	// Equip first available weapon (prioritize slot 0 if available)
+	if (!WeaponSlots.IsEmpty() && WeaponSlots[0])
+	{
+		EquipWeapon(0);
 	}
 	else
 	{
-		UE_LOG(LogGASDebug, Error, TEXT("InitializeDefaultWeapons: DefaultRevolverClass is NULL!"));
-	}
-
-	// Spawn Lasso in slot 1
-	if (DefaultLassoClass)
-	{
-		AWeaponBase *Lasso = SpawnWeapon(DefaultLassoClass);
-		if (Lasso)
+		// Find first non-empty slot
+		for (int32 i = 0; i < WeaponSlots.Num(); ++i)
 		{
-			AddWeaponToSlot(Lasso, (int32)EWeaponSlot::Lasso);
+			if (WeaponSlots[i])
+			{
+				EquipWeapon(i);
+				break;
+			}
 		}
 	}
-
-	// Spawn Dynamite in slot 2
-	if (DefaultDynamiteClass)
-	{
-		AWeaponBase *Dynamite = SpawnWeapon(DefaultDynamiteClass);
-		if (Dynamite)
-		{
-			AddWeaponToSlot(Dynamite, (int32)EWeaponSlot::Dynamite);
-		}
-	}
-
-	// Spawn Trumpet in slot 3
-	if (DefaultTrumpetClass)
-	{
-		AWeaponBase *Trumpet = SpawnWeapon(DefaultTrumpetClass);
-		if (Trumpet)
-		{
-			AddWeaponToSlot(Trumpet, (int32)EWeaponSlot::Trumpet);
-		}
-	}
-
-	// Equip revolver by default
-	EquipWeapon((int32)EWeaponSlot::Revolver);
-}
-
-void UInventoryComponent::SetDefaultWeaponClasses(TSubclassOf<AWeaponBase> RevolverClass, TSubclassOf<AWeaponBase> LassoClass, TSubclassOf<AWeaponBase> DynamiteClass, TSubclassOf<AWeaponBase> TrumpetClass)
-{
-	DefaultRevolverClass = RevolverClass;
-	DefaultLassoClass = LassoClass;
-	DefaultDynamiteClass = DynamiteClass;
-	DefaultTrumpetClass = TrumpetClass;
 }
 
 AWeaponBase *UInventoryComponent::SpawnWeapon(TSubclassOf<AWeaponBase> WeaponClass)
@@ -374,12 +360,12 @@ void UInventoryComponent::ServerDropWeapon_Implementation()
 void UInventoryComponent::OnRep_WeaponSlots()
 {
 	// Called on clients when the WeaponSlots array is replicated
-	// This ensures that newly replicated weapons trigger their blueprint events on the client
+	// This ensures that newly replicated weapons trigger their equip ability on the client
 
-	// If we have an equipped weapon from replication, make sure to call its EquipWeapon event
+	// If we have an equipped weapon from replication, trigger the equip ability
 	if (EquippedWeapon)
 	{
-		EquippedWeapon->EquipWeapon();
+		TriggerWeaponEquipAbility(EquippedWeapon, true);
 	}
 
 	// Broadcast the weapon added event to trigger any UI updates
@@ -389,13 +375,13 @@ void UInventoryComponent::OnRep_WeaponSlots()
 void UInventoryComponent::OnRep_EquippedWeapon()
 {
 	// Called on clients when the EquippedWeapon pointer is replicated
-	// This ensures the weapon's blueprint EquipWeapon event fires on the client
+	// This ensures the weapon equip ability fires on the client
 
-	// If there's an equipped weapon, call EquipWeapon to fire the blueprint event
+	// If there's an equipped weapon, trigger the equip ability
 	if (EquippedWeapon)
 	{
-		UE_LOG(LogGASDebug, Log, TEXT("OnRep_EquippedWeapon: Calling EquipWeapon on replicated weapon %s"), *EquippedWeapon->GetName());
-		EquippedWeapon->EquipWeapon();
+		UE_LOG(LogGASDebug, Log, TEXT("OnRep_EquippedWeapon: Triggering equip ability for replicated weapon %s"), *EquippedWeapon->GetName());
+		TriggerWeaponEquipAbility(EquippedWeapon, true);
 		OnWeaponEquipped.Broadcast();
 	}
 	else
@@ -486,6 +472,81 @@ void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &
 	DOREPLIFETIME(UInventoryComponent, CurrentEquippedSlot);
 }
 
+void UInventoryComponent::TriggerWeaponEquipAbility(AWeaponBase *Weapon, bool bIsEquipping)
+{
+	UE_LOG(LogGASDebug, Warning, TEXT("TriggerWeaponEquipAbility: ENTER - Weapon=%s, bIsEquipping=%s"),
+		   Weapon ? *Weapon->GetName() : TEXT("NULL"), bIsEquipping ? TEXT("TRUE") : TEXT("FALSE"));
+
+	if (!Weapon || !OwnerCharacter)
+	{
+		UE_LOG(LogGASDebug, Error, TEXT("TriggerWeaponEquipAbility: No weapon or owner character!"));
+		return;
+	}
+
+	UCattleAbilitySystemComponent *ASC = Cast<UCattleAbilitySystemComponent>(OwnerCharacter->GetAbilitySystemComponent());
+	if (!ASC)
+	{
+		UE_LOG(LogGASDebug, Error, TEXT("TriggerWeaponEquipAbility: No ASC found on owner character"));
+		return;
+	}
+
+	// Find or grant the GA_WeaponEquip ability
+	FGameplayAbilitySpec *EquipAbilitySpec = ASC->FindAbilitySpecFromClass(UGA_WeaponEquip::StaticClass());
+	if (!EquipAbilitySpec)
+	{
+		// Grant the ability if not already granted (one-time setup)
+		UE_LOG(LogGASDebug, Warning, TEXT("TriggerWeaponEquipAbility: Granting GA_WeaponEquip ability"));
+		FGameplayAbilitySpec NewSpec(UGA_WeaponEquip::StaticClass(), 1, INDEX_NONE, this);
+		FGameplayAbilitySpecHandle Handle = ASC->GiveAbility(NewSpec);
+		EquipAbilitySpec = ASC->FindAbilitySpecFromHandle(Handle);
+	}
+
+	if (!EquipAbilitySpec)
+	{
+		UE_LOG(LogGASDebug, Error, TEXT("TriggerWeaponEquipAbility: Failed to grant GA_WeaponEquip"));
+		return;
+	}
+
+	// For InstancedPerActor abilities, check all instances in the spec
+	// The ability creates one instance that persists
+	UGA_WeaponEquip *EquipAbility = nullptr;
+
+	// First check for existing instances
+	for (UGameplayAbility *Instance : EquipAbilitySpec->GetAbilityInstances())
+	{
+		EquipAbility = Cast<UGA_WeaponEquip>(Instance);
+		if (EquipAbility)
+		{
+			UE_LOG(LogGASDebug, Warning, TEXT("TriggerWeaponEquipAbility: Found existing instance"));
+			break;
+		}
+	}
+
+	// If no instance found, use the CDO (will be used to create instance on first activation)
+	if (!EquipAbility)
+	{
+		EquipAbility = Cast<UGA_WeaponEquip>(EquipAbilitySpec->Ability);
+		UE_LOG(LogGASDebug, Warning, TEXT("TriggerWeaponEquipAbility: Using CDO (no instance yet)"));
+	}
+
+	if (EquipAbility)
+	{
+		EquipAbility->SetTargetWeapon(Weapon);
+		EquipAbility->SetIsEquipping(bIsEquipping);
+		UE_LOG(LogGASDebug, Warning, TEXT("TriggerWeaponEquipAbility: Set TargetWeapon=%s, bIsEquipping=%s"),
+			   *Weapon->GetName(), bIsEquipping ? TEXT("TRUE") : TEXT("FALSE"));
+	}
+	else
+	{
+		UE_LOG(LogGASDebug, Error, TEXT("TriggerWeaponEquipAbility: No ability instance or CDO found!"));
+		return;
+	}
+
+	// Activate the ability
+	bool bActivated = ASC->TryActivateAbility(EquipAbilitySpec->Handle);
+	UE_LOG(LogGASDebug, Warning, TEXT("TriggerWeaponEquipAbility: TryActivateAbility returned %s"), bActivated ? TEXT("TRUE") : TEXT("FALSE"));
+}
+
 void UInventoryComponent::GrantWeaponAbilities(AWeaponBase *Weapon)
 {
 	if (!Weapon || !OwnerCharacter)
@@ -550,13 +611,17 @@ void UInventoryComponent::RevokeWeaponAbilities(AWeaponBase *Weapon)
 		return;
 	}
 
-	// Revoke all abilities granted by this weapon
+	// Cancel and revoke all abilities granted by this weapon
 	for (const FGameplayAbilitySpecHandle &Handle : Weapon->GrantedAbilityHandles)
 	{
 		if (Handle.IsValid())
 		{
+			// First cancel the ability if it's currently active
+			ASC->CancelAbilityHandle(Handle);
+
+			// Then clear/remove the ability
 			ASC->ClearAbility(Handle);
-			UE_LOG(LogGASDebug, Log, TEXT("RevokeWeaponAbilities: Cleared ability (Handle: %s)"), *Handle.ToString());
+			UE_LOG(LogGASDebug, Log, TEXT("RevokeWeaponAbilities: Cancelled and cleared ability (Handle: %s)"), *Handle.ToString());
 		}
 	}
 

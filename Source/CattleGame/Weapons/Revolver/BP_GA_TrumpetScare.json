@@ -1,0 +1,1716 @@
+{
+	"metadata":
+	{
+		"blueprintName": "BP_GA_TrumpetScare",
+		"blueprintPath": "/Game/Characters/Player/Abilities/Trumpet/BP_GA_TrumpetScare.BP_GA_TrumpetScare",
+		"blueprintType": "Normal",
+		"parentClass": "/Script/CattleGame.GA_TrumpetScare",
+		"generatedClass": "BP_GA_TrumpetScare_C",
+		"engineVersion": "++UE5+Release-5.6-CL-44394996",
+		"serializerVersion": "2.0.0",
+		"exportTimestamp": "2025.12.02-18.20.17"
+	},
+	"variables": [
+		{
+			"varName": "NewVar",
+			"varGuid": "3CA9F7074E4CE83D00A91483FBAFE9AA",
+			"varType": "bool",
+			"category": "Default",
+			"defaultValue": "",
+			"bIsExposed": false,
+			"bIsReadOnly": false,
+			"replicationCondition": "",
+			"metadata":
+			{
+			}
+		},
+		{
+			"varName": "characterOwner",
+			"varGuid": "176951A242F7EA4EF96BE4AE29C0B660",
+			"varType": "object:/Script/CattleGame.CattleCharacter",
+			"category": "Default",
+			"defaultValue": "",
+			"bIsExposed": false,
+			"bIsReadOnly": false,
+			"replicationCondition": "",
+			"metadata":
+			{
+			}
+		},
+		{
+			"varName": "particleSystem",
+			"varGuid": "8FA39AE945F4C2FE0658779C2CC66544",
+			"varType": "object:/Script/Niagara.NiagaraComponent",
+			"category": "Default",
+			"defaultValue": "",
+			"bIsExposed": false,
+			"bIsReadOnly": false,
+			"replicationCondition": "",
+			"metadata":
+			{
+			}
+		},
+		{
+			"varName": "weapon",
+			"varGuid": "CDB79F4B45481FA3AB9FE2891CE01F1D",
+			"varType": "object:/Script/CattleGame.WeaponBase",
+			"category": "Default",
+			"defaultValue": "",
+			"bIsExposed": false,
+			"bIsReadOnly": false,
+			"replicationCondition": "",
+			"metadata":
+			{
+			}
+		}
+	],
+	"eventGraphs": [
+		{
+			"graphName": "EventGraph",
+			"graphType": "EventGraph",
+			"graphGuid": "FDDCB2B54AD77FB72EF7B093D35184F9",
+			"nodes": [
+				{
+					"nodeGuid": "CE29BEBE4437D861EC32D5BA23E8152F",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Spawn System Attached",
+					"nodeComment": "",
+					"positionX": 400,
+					"positionY": -768,
+					"pins": [
+						{
+							"pinId": "BAA6BC7D4973EEE8842258AB02B06420",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"9AB7CCA040FDB1227DF2248836D64582"
+							]
+						},
+						{
+							"pinId": "9BD16A2C4B1D097EE3EF9AAA751732C6",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"37400FC24A420BC848061AAAD2AC2711"
+							]
+						},
+						{
+							"pinId": "340DDE5F4811FF59ED307C9B850533DC",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Niagara.NiagaraFunctionLibrary",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "61055DDA4CCEB9E1D8614986F1C6FAEE",
+							"pinName": "SystemTemplate",
+							"direction": "input",
+							"pinType": "object:/Script/Niagara.NiagaraSystem",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "4A960565438ACB2D650D38973A929152",
+							"pinName": "AttachToComponent",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SceneComponent",
+							"defaultValue": "",
+							"linkedTo": [
+								"29444427472449ED3ADE8CBD493DF95C"
+							]
+						},
+						{
+							"pinId": "A1AC765541BEF7F056D33D9DD3A7364E",
+							"pinName": "AttachPointName",
+							"direction": "input",
+							"pinType": "name",
+							"defaultValue": "muzzle",
+							"linkedTo": []
+						},
+						{
+							"pinId": "6205219C449E02E9CD1D15A4DBDE1414",
+							"pinName": "Location",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Vector",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": []
+						},
+						{
+							"pinId": "4792F5D74BF87A63A94819B9A6E8E42C",
+							"pinName": "Rotation",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Rotator",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": []
+						},
+						{
+							"pinId": "2A8A7CBE479D391E2BE3B1B6B37A5185",
+							"pinName": "LocationType",
+							"direction": "input",
+							"pinType": "byte:/Script/Engine.EAttachLocation",
+							"defaultValue": "SnapToTarget",
+							"linkedTo": []
+						},
+						{
+							"pinId": "B9C6C0D24E0FC37D7C0E008F27702DA2",
+							"pinName": "bAutoDestroy",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "false",
+							"linkedTo": []
+						},
+						{
+							"pinId": "6FE6CFD64FF7F8D0045E0084F36D11BB",
+							"pinName": "bAutoActivate",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "true",
+							"linkedTo": []
+						},
+						{
+							"pinId": "76A3A96D42AEFA586BF821ABB5AFC11A",
+							"pinName": "PoolingMethod",
+							"direction": "input",
+							"pinType": "byte:/Script/Niagara.ENCPoolMethod",
+							"defaultValue": "None",
+							"linkedTo": []
+						},
+						{
+							"pinId": "B9B6706D4B152770520ABEAB10446998",
+							"pinName": "bPreCullCheck",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "true",
+							"linkedTo": []
+						},
+						{
+							"pinId": "1ABE669E4B788B7327A6AA8A809B0840",
+							"pinName": "ReturnValue",
+							"direction": "output",
+							"pinType": "object:/Script/Niagara.NiagaraComponent",
+							"defaultValue": "",
+							"linkedTo": [
+								"7879B52D45EBB7D08235F1AB5BDD97E2"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "SpawnSystemAttached",
+						"memberParentClass": "/Script/Niagara.NiagaraFunctionLibrary",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "ABA23D8A4F0D344DD0FE51BB66A5788D",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Get Character Owner\nTarget is GA Weapon",
+					"nodeComment": "",
+					"positionX": -368,
+					"positionY": -848,
+					"pins": [
+						{
+							"pinId": "B371148743B457BCBA6111BE11CF90E3",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/CattleGame.GA_Weapon",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "2CE042134AF615EB6B8FAF8A86310585",
+							"pinName": "ReturnValue",
+							"direction": "output",
+							"pinType": "object:/Script/CattleGame.CattleCharacter",
+							"defaultValue": "",
+							"linkedTo": [
+								"110E70F14DB0F23E5E92519F4AC63E73"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "GetCharacterOwner",
+						"memberParentClass": "",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": true,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": true,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "true"
+					}
+				},
+				{
+					"nodeGuid": "6D6D2978465E05B149643D86A4071F75",
+					"nodeClass": "K2Node_VariableSet",
+					"nodeTitle": "Set characterOwner",
+					"nodeComment": "",
+					"positionX": -352,
+					"positionY": -752,
+					"pins": [
+						{
+							"pinId": "21CE375F4CD92553E45336A8CBCCA7E8",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"C60F49164BAC3066F504C8B23C48518F"
+							]
+						},
+						{
+							"pinId": "AFC5EFF143F4E8F41A2ED1B9E5668BB7",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"0447FEF341EDDAD54A222096D083BD56"
+							]
+						},
+						{
+							"pinId": "110E70F14DB0F23E5E92519F4AC63E73",
+							"pinName": "characterOwner",
+							"direction": "input",
+							"pinType": "object:/Script/CattleGame.CattleCharacter",
+							"defaultValue": "",
+							"linkedTo": [
+								"2CE042134AF615EB6B8FAF8A86310585"
+							]
+						},
+						{
+							"pinId": "9AEF5BA042ED6A8C36CBB4A0D230736B",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Game/Characters/Player/Abilities/Trumpet/BP_GA_TrumpetScare.BP_GA_TrumpetScare_C",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "D76A025C462E3AA7836BCF8864C66792",
+							"pinName": "Output_Get",
+							"direction": "output",
+							"pinType": "object:/Script/CattleGame.CattleCharacter",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "characterOwner",
+						"memberParentClass": "",
+						"memberGuid": "176951A242F7EA4EF96BE4AE29C0B660",
+						"bIsSelfContext": true,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "12459D8C4FE8F636B0BDB7BD70171C41",
+					"nodeClass": "K2Node_VariableSet",
+					"nodeTitle": "Set particleSystem",
+					"nodeComment": "",
+					"positionX": 816,
+					"positionY": -752,
+					"pins": [
+						{
+							"pinId": "37400FC24A420BC848061AAAD2AC2711",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"9BD16A2C4B1D097EE3EF9AAA751732C6"
+							]
+						},
+						{
+							"pinId": "1E49428848BCB46F860783A8C34EA32F",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"DFB43F2E4A43BEC75BFE33BC6FF62C4B"
+							]
+						},
+						{
+							"pinId": "7879B52D45EBB7D08235F1AB5BDD97E2",
+							"pinName": "particleSystem",
+							"direction": "input",
+							"pinType": "object:/Script/Niagara.NiagaraComponent",
+							"defaultValue": "",
+							"linkedTo": [
+								"1ABE669E4B788B7327A6AA8A809B0840"
+							]
+						},
+						{
+							"pinId": "D18F1D6545AA0C769104EBB817CEB903",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Game/Characters/Player/Abilities/Trumpet/BP_GA_TrumpetScare.BP_GA_TrumpetScare_C",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "518B6D284891A5B82D58CA9A1D183F7C",
+							"pinName": "Output_Get",
+							"direction": "output",
+							"pinType": "object:/Script/Niagara.NiagaraComponent",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "particleSystem",
+						"memberParentClass": "",
+						"memberGuid": "8FA39AE945F4C2FE0658779C2CC66544",
+						"bIsSelfContext": true,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "57C89A80421A423509BE74A3ACCAE441",
+					"nodeClass": "K2Node_Event",
+					"nodeTitle": "Event ActivateAbility",
+					"nodeComment": "",
+					"positionX": -624,
+					"positionY": -768,
+					"pins": [
+						{
+							"pinId": "0295E6AE434F667DAAA7878712DCC238",
+							"pinName": "OutputDelegate",
+							"direction": "output",
+							"pinType": "delegate",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "C60F49164BAC3066F504C8B23C48518F",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"21CE375F4CD92553E45336A8CBCCA7E8"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "K2_ActivateAbility",
+						"memberParentClass": "/Script/GameplayAbilities.GameplayAbility",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "CE02075944B4A87AF4FF499DCEB2263F",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Get Weapon\nTarget is GA Weapon",
+					"nodeComment": "",
+					"positionX": -64,
+					"positionY": -848,
+					"pins": [
+						{
+							"pinId": "424D5C6040CA864CE826C8BA66CD842D",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/CattleGame.GA_Weapon",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "6EA535104FA556BEE020EA98D77D1939",
+							"pinName": "ReturnValue",
+							"direction": "output",
+							"pinType": "object:/Script/CattleGame.WeaponBase",
+							"defaultValue": "",
+							"linkedTo": [
+								"29118E5245830179507C3DA5D568DB91"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "GetWeapon",
+						"memberParentClass": "",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": true,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": true,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "true"
+					}
+				},
+				{
+					"nodeGuid": "6CA1B4F5462CD16BDFBFCC9DF84FD4A2",
+					"nodeClass": "K2Node_VariableSet",
+					"nodeTitle": "Set weapon",
+					"nodeComment": "",
+					"positionX": -48,
+					"positionY": -752,
+					"pins": [
+						{
+							"pinId": "0447FEF341EDDAD54A222096D083BD56",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"AFC5EFF143F4E8F41A2ED1B9E5668BB7"
+							]
+						},
+						{
+							"pinId": "9AB7CCA040FDB1227DF2248836D64582",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"BAA6BC7D4973EEE8842258AB02B06420"
+							]
+						},
+						{
+							"pinId": "29118E5245830179507C3DA5D568DB91",
+							"pinName": "weapon",
+							"direction": "input",
+							"pinType": "object:/Script/CattleGame.WeaponBase",
+							"defaultValue": "",
+							"linkedTo": [
+								"6EA535104FA556BEE020EA98D77D1939"
+							]
+						},
+						{
+							"pinId": "4E6EB8434647F2A32E0280B26297F46F",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Game/Characters/Player/Abilities/Trumpet/BP_GA_TrumpetScare.BP_GA_TrumpetScare_C",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "C02BDE4146EF08E816B817B338C0AC9A",
+							"pinName": "Output_Get",
+							"direction": "output",
+							"pinType": "object:/Script/CattleGame.WeaponBase",
+							"defaultValue": "",
+							"linkedTo": [
+								"9BAEF2034A400743ADC39D84CB6FE6BE"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "weapon",
+						"memberParentClass": "",
+						"memberGuid": "CDB79F4B45481FA3AB9FE2891CE01F1D",
+						"bIsSelfContext": true,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "2BC73C494B51F2E7391B7CBDB27922AD",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Get Parent Component\nTarget is Actor",
+					"nodeComment": "",
+					"positionX": 176,
+					"positionY": -704,
+					"pins": [
+						{
+							"pinId": "9BAEF2034A400743ADC39D84CB6FE6BE",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.Actor",
+							"defaultValue": "",
+							"linkedTo": [
+								"C02BDE4146EF08E816B817B338C0AC9A"
+							]
+						},
+						{
+							"pinId": "29444427472449ED3ADE8CBD493DF95C",
+							"pinName": "ReturnValue",
+							"direction": "output",
+							"pinType": "object:/Script/Engine.ChildActorComponent",
+							"defaultValue": "",
+							"linkedTo": [
+								"4A960565438ACB2D650D38973A929152"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "GetParentComponent",
+						"memberParentClass": "/Script/Engine.Actor",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": true,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": true,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "true"
+					}
+				},
+				{
+					"nodeGuid": "A56030A040089600EF3FA5B0A3FB9B69",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Get Actor Location\nTarget is Actor",
+					"nodeComment": "",
+					"positionX": 800,
+					"positionY": -624,
+					"pins": [
+						{
+							"pinId": "C15BB60545C02A9D1D1D0FB5C033C522",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.Actor",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "CC7EF01F4442C971459C5385A753506C",
+							"pinName": "ReturnValue",
+							"direction": "output",
+							"pinType": "struct:/Script/CoreUObject.Vector",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": [
+								"9B5F88154EDD4A2D5990A4BD17ADAAF6"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "K2_GetActorLocation",
+						"memberParentClass": "/Script/Engine.Actor",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": true,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": true,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "true"
+					}
+				},
+				{
+					"nodeGuid": "A98914514FB48F48CD96BC8C5E1EFFFD",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Play Sound at Location",
+					"nodeComment": "",
+					"positionX": 1072,
+					"positionY": -768,
+					"pins": [
+						{
+							"pinId": "DFB43F2E4A43BEC75BFE33BC6FF62C4B",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"1E49428848BCB46F860783A8C34EA32F"
+							]
+						},
+						{
+							"pinId": "66FEBE1146DE9B1D494AC1865C890EAD",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"5F2794F2442C2752C74DEC8315CA144F"
+							]
+						},
+						{
+							"pinId": "D493F0AC42B3103643D0A28395DBE494",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.GameplayStatics",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "699A84F4413DFDE984343EB1C2D99416",
+							"pinName": "WorldContextObject",
+							"direction": "input",
+							"pinType": "object:/Script/CoreUObject.Object",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "E45EE9C04548D42AD91F0989DFE8596C",
+							"pinName": "Sound",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SoundBase",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "9B5F88154EDD4A2D5990A4BD17ADAAF6",
+							"pinName": "Location",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Vector",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": [
+								"CC7EF01F4442C971459C5385A753506C"
+							]
+						},
+						{
+							"pinId": "77BCECAA40ECCB01F9E817B98DF52404",
+							"pinName": "Rotation",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Rotator",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": []
+						},
+						{
+							"pinId": "2F6ADC5C4B90E2D72F0982BF79D94DE4",
+							"pinName": "VolumeMultiplier",
+							"direction": "input",
+							"pinType": "real:float",
+							"defaultValue": "1.000000",
+							"linkedTo": []
+						},
+						{
+							"pinId": "57F109E641AC17AF7825DBA5611B35F3",
+							"pinName": "PitchMultiplier",
+							"direction": "input",
+							"pinType": "real:float",
+							"defaultValue": "1.000000",
+							"linkedTo": []
+						},
+						{
+							"pinId": "AE50012941ECB6D3F66B7B95E4BE0F1C",
+							"pinName": "StartTime",
+							"direction": "input",
+							"pinType": "real:float",
+							"defaultValue": "0.000000",
+							"linkedTo": []
+						},
+						{
+							"pinId": "F01FA05A45698805A592C59FE7997EB6",
+							"pinName": "AttenuationSettings",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SoundAttenuation",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "5F9AA51F4F08B16F986BE68AAEADAE98",
+							"pinName": "ConcurrencySettings",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SoundConcurrency",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "CF1DBCCC455235B909FF9BA3939E824B",
+							"pinName": "OwningActor",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.Actor",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "F705DD4C4E8F9276466EF6848A98F528",
+							"pinName": "InitialParams",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.InitialActiveSoundParams",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "PlaySoundAtLocation",
+						"memberParentClass": "/Script/Engine.GameplayStatics",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "DC5C3BEF4FD5DDA0FF2AF686B6B77A8F",
+					"nodeClass": "K2Node_LatentAbilityCall",
+					"nodeTitle": "Wait Input Release",
+					"nodeComment": "",
+					"positionX": 1408,
+					"positionY": -736,
+					"pins": [
+						{
+							"pinId": "5F2794F2442C2752C74DEC8315CA144F",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"66FEBE1146DE9B1D494AC1865C890EAD"
+							]
+						},
+						{
+							"pinId": "FC5771F54AC825B72EBBD3A319E56D26",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "6DA8B01945AA631BCD80738266DAFE6F",
+							"pinName": "AsyncTaskProxy",
+							"direction": "output",
+							"pinType": "object:/Script/GameplayAbilities.AbilityTask_WaitInputRelease",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "AE5DC44945F6E40066441FBC343EABE6",
+							"pinName": "OnRelease",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"33D81DC44BA7B3AE96772EB5BEA41803"
+							]
+						},
+						{
+							"pinId": "D5E279E94DC0719077363EA6998B6872",
+							"pinName": "TimeHeld",
+							"direction": "output",
+							"pinType": "real:float",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "4357402B45DB87250920CEB8115E4C10",
+							"pinName": "OwningAbility",
+							"direction": "input",
+							"pinType": "object:/Script/GameplayAbilities.GameplayAbility",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "CB12B9D94AC668D1AD4927B52565633B",
+							"pinName": "bTestAlreadyReleased",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "false",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": true,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "EA19DA4944BBD7880256729509F155AB",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "End Ability\nTarget is Gameplay Ability",
+					"nodeComment": "",
+					"positionX": 1776,
+					"positionY": -688,
+					"pins": [
+						{
+							"pinId": "33D81DC44BA7B3AE96772EB5BEA41803",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"AE5DC44945F6E40066441FBC343EABE6"
+							]
+						},
+						{
+							"pinId": "20A0AAA84713EB45D080B4BECAEC68E2",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "6BF00B7F484A87E4199C98B859EEDA23",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/GameplayAbilities.GameplayAbility",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "K2_EndAbility",
+						"memberParentClass": "",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": true,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "ED72E9E7447C2FF4483854A806148607",
+					"nodeClass": "EdGraphNode_Comment",
+					"nodeTitle": "On Ability",
+					"nodeComment": "On Ability",
+					"positionX": -688,
+					"positionY": -912,
+					"pins": [],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+					}
+				},
+				{
+					"nodeGuid": "1F83A9564E0F8DE6B1A9F39945A83207",
+					"nodeClass": "K2Node_Event",
+					"nodeTitle": "Event OnAbilityEnded",
+					"nodeComment": "",
+					"positionX": -672,
+					"positionY": -16,
+					"pins": [
+						{
+							"pinId": "FAA1E689427F0342620A51879E278894",
+							"pinName": "OutputDelegate",
+							"direction": "output",
+							"pinType": "delegate",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "7796DD7A4DA36287E651E6B93687D6E8",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"F8DB8FDF4DD9C90F8942E0831FD197A7"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "OnAbilityEnded",
+						"memberParentClass": "/Script/CattleGame.GA_Weapon",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "03B1D397486D8372808A26A066B5C90B",
+					"nodeClass": "K2Node_VariableGet",
+					"nodeTitle": "Get particleSystem",
+					"nodeComment": "",
+					"positionX": -480,
+					"positionY": 80,
+					"pins": [
+						{
+							"pinId": "3F1BE5CC4EA2B6780C74E28965607A2B",
+							"pinName": "particleSystem",
+							"direction": "output",
+							"pinType": "object:/Script/Niagara.NiagaraComponent",
+							"defaultValue": "",
+							"linkedTo": [
+								"5DFD936047D1CDA902DFDC9F8AA64FBF"
+							]
+						},
+						{
+							"pinId": "E5606B454E70DFD3D396BDBBB0AB62BB",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Game/Characters/Player/Abilities/Trumpet/BP_GA_TrumpetScare.BP_GA_TrumpetScare_C",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "particleSystem",
+						"memberParentClass": "",
+						"memberGuid": "8FA39AE945F4C2FE0658779C2CC66544",
+						"bIsSelfContext": true,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": true,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "true"
+					}
+				},
+				{
+					"nodeGuid": "6AD3D98C4508B1E0865E64A9A4469A96",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Destroy Component\nTarget is Actor Component",
+					"nodeComment": "",
+					"positionX": -320,
+					"positionY": -32,
+					"pins": [
+						{
+							"pinId": "F8DB8FDF4DD9C90F8942E0831FD197A7",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"7796DD7A4DA36287E651E6B93687D6E8"
+							]
+						},
+						{
+							"pinId": "11B25F2F4E9D921C51DDE1A4D3F2CCEE",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "5DFD936047D1CDA902DFDC9F8AA64FBF",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.ActorComponent",
+							"defaultValue": "",
+							"linkedTo": [
+								"3F1BE5CC4EA2B6780C74E28965607A2B"
+							]
+						},
+						{
+							"pinId": "27C9A5E6456E127C9B8C52AFF0AA6807",
+							"pinName": "Object",
+							"direction": "input",
+							"pinType": "object:/Script/CoreUObject.Object",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "K2_DestroyComponent",
+						"memberParentClass": "/Script/Engine.ActorComponent",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				}
+			]
+		}
+	],
+	"functions": [],
+	"macros": [],
+	"components": [],
+	"implementedInterfaces": [],
+	"hardDependencies": [],
+	"softDependencies": []
+}

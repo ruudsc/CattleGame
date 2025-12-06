@@ -4,6 +4,8 @@
 #include "CattleGame/Character/CattleCharacter.h"
 #include "CattleGame/Character/InventoryComponent.h"
 #include "CattleGame/Weapons/Dynamite/Dynamite.h"
+#include "CattleGame/AbilitySystem/CattleGameplayTags.h"
+#include "AbilitySystemComponent.h"
 #include "CattleGame/CattleGame.h"
 
 UGA_DynamiteThrow::UGA_DynamiteThrow()
@@ -71,13 +73,31 @@ void UGA_DynamiteThrow::ThrowDynamite()
         return;
     }
 
+    ACattleCharacter *Character = Cast<ACattleCharacter>(CurrentActorInfo->OwnerActor.Get());
+    if (!Character)
+    {
+        UE_LOG(LogGASDebug, Error, TEXT("GA_DynamiteThrow::ThrowDynamite - No character"));
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+        return;
+    }
+
+    UE_LOG(LogGASDebug, Warning, TEXT("GA_DynamiteThrow::ThrowDynamite - Throwing dynamite"));
+
+    // Execute GameplayCue for replicated VFX/Audio (one-shot burst effect)
+    if (UAbilitySystemComponent *ASC = CurrentActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_Dynamite_Throw);
+    }
+
     // Fire blueprint event
     OnThrowStarted(Dynamite);
 
-    // Call the weapon's Fire method (handles projectile spawning)
-    Dynamite->Fire();
+    // Get spawn location and direction from character
+    FVector SpawnLocation = Character->GetActorLocation() + Character->GetActorForwardVector() * 100.0f + FVector(0, 0, 50);
+    FVector LaunchDirection = Character->GetControlRotation().Vector();
 
-    UE_LOG(LogGASDebug, Log, TEXT("GA_DynamiteThrow::ThrowDynamite - Dynamite thrown"));
+    // Call the projectile weapon's fire with prediction method
+    Dynamite->FireWithPrediction(SpawnLocation, LaunchDirection);
 
     // End ability
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);

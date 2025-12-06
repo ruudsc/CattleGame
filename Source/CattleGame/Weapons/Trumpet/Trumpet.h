@@ -25,24 +25,7 @@ class CATTLEGAME_API ATrumpet : public AWeaponBase
 public:
 	ATrumpet();
 
-	// ===== SOCKET CONSTANTS =====
-
-	/** Socket name for trumpet attachment on character skeleton */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trumpet|Attachment")
-	FName TrumpetHandSocketName = FName(TEXT("HandGrip_R"));
-
 	// ===== WEAPON INTERFACE =====
-
-	/** Override equip to attach to character hand */
-	virtual void EquipWeapon() override;
-
-	/** Override unequip to detach from character */
-	virtual void UnequipWeapon() override;
-
-	// ===== WEAPON INTERFACE =====
-
-	/** Override Fire for Lure ability */
-	virtual void Fire() override;
 
 	/** Check if trumpet can play (always true) */
 	virtual bool CanFire() const;
@@ -117,17 +100,4 @@ protected:
 	// ===== NETWORK =====
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
-
-private:
-	/** Start playing Lure effect */
-	void PlayLure();
-
-	/** Get all targets affected by current effect */
-	void GetAffectedTargets(TArray<AActor *> &OutTargets);
-
-	/** Apply lure or scare force to targets */
-	void ApplyEffectForces();
-
-	/** Attach trumpet mesh to character hand socket */
-	void AttachToCharacterHand();
 };

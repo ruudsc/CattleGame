@@ -53,51 +53,6 @@ void ALasso::Tick(float DeltaTime)
 
 // ===== WEAPON INTERFACE =====
 
-void ALasso::EquipWeapon()
-{
-	// Call parent to trigger OnWeaponEquipped event
-	Super::EquipWeapon();
-
-	// Attach lasso mesh to character hand socket
-	AttachToCharacterHand();
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::EquipWeapon - Attached to character hand"));
-}
-
-void ALasso::UnequipWeapon()
-{
-	// Detach from character
-	// DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-
-	// Call parent to trigger OnWeaponUnequipped event
-	Super::UnequipWeapon();
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::UnequipWeapon - Detached from character"));
-}
-
-void ALasso::Fire()
-{
-	if (!CanFire())
-	{
-		return;
-	}
-
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner)
-	{
-		return;
-	}
-
-	// Compute spawn and launch using camera orientation
-	const FVector SpawnLocation = CurrentOwner->GetActorLocation() + CurrentOwner->GetActorForwardVector() * 100.0f;
-	const FVector LaunchDirection = CurrentOwner->GetControlRotation().Vector();
-
-	// Send authoritative fire request to server
-	ServerFire(SpawnLocation, LaunchDirection);
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::Fire - Requesting throw, State=%d"), (int32)CurrentState);
-}
-
 bool ALasso::CanFire() const
 {
 	// Can only fire if lasso is idle and not in cooldown
@@ -172,6 +127,26 @@ void ALasso::StartRetract()
 
 	// Notify blueprint
 	OnLassoRetractStarted();
+}
+
+void ALasso::ForceReset()
+{
+	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::ForceReset - Force resetting to Idle state (was state %d)"), (int32)CurrentState);
+
+	// Destroy the projectile if it exists
+	if (LassoProjectile)
+	{
+		LassoProjectile->Destroy();
+		LassoProjectile = nullptr;
+	}
+
+	// Clear all state
+	TetheredTarget = nullptr;
+	bIsPulling = false;
+	CooldownRemaining = 0.0f;
+
+	// Force to idle state
+	SetState(ELassoState::Idle);
 }
 
 // ===== PROJECTILE CALLBACKS =====
@@ -643,30 +618,6 @@ void ALasso::SetWeaponMeshVisible(bool bVisible)
 	{
 		LassoMeshComponent->SetVisibility(bVisible, true);
 	}
-}
-
-// ===== ATTACHMENT =====
-
-void ALasso::AttachToCharacterHand()
-{
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner)
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::AttachToCharacterHand - No owner character"));
-		return;
-	}
-
-	USkeletalMeshComponent *TargetMesh = CurrentOwner->GetActiveCharacterMesh();
-	if (!TargetMesh)
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::AttachToCharacterHand - No active character mesh"));
-		return;
-	}
-
-	FAttachmentTransformRules AttachRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, true);
-	AttachToComponent(TargetMesh, AttachRules, LassoHandSocketName);
-
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::AttachToCharacterHand - Attached to socket %s on mesh %s"), *LassoHandSocketName.ToString(), *TargetMesh->GetName());
 }
 
 // ===== BLUEPRINT NATIVE EVENT IMPLEMENTATIONS =====

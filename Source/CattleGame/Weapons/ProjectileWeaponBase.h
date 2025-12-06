@@ -20,6 +20,13 @@ class CATTLEGAME_API AProjectileWeaponBase : public AWeaponBase
 public:
     AProjectileWeaponBase() = default;
 
+    /**
+     * Public method to fire the projectile weapon with client-side prediction.
+     * Called by abilities to initiate the throw/fire sequence.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Weapon|Projectile")
+    void FireWithPrediction(const FVector &SpawnLocation, const FVector &LaunchDirection);
+
 protected:
     // Client-side entry: request a server fire while playing predicted cosmetics
     void RequestServerFireWithPrediction(const FVector &SpawnLocation, const FVector &LaunchDirection);

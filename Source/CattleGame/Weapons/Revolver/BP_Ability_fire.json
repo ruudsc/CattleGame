@@ -1,0 +1,806 @@
+{
+	"metadata":
+	{
+		"blueprintName": "BP_Ability_fire",
+		"blueprintPath": "/Game/Characters/Player/Abilities/Revolver/BP_Ability_fire.BP_Ability_fire",
+		"blueprintType": "Normal",
+		"parentClass": "/Script/CattleGame.GA_WeaponFire",
+		"generatedClass": "BP_Ability_fire_C",
+		"engineVersion": "++UE5+Release-5.6-CL-44394996",
+		"serializerVersion": "2.0.0",
+		"exportTimestamp": "2025.12.01-21.45.30"
+	},
+	"variables": [],
+	"eventGraphs": [
+		{
+			"graphName": "EventGraph",
+			"graphType": "EventGraph",
+			"graphGuid": "ACBE81134A4A9E26F45A0ABA252080BB",
+			"nodes": [
+				{
+					"nodeGuid": "86457C0341D84DFBE28AEAB11ABAD916",
+					"nodeClass": "K2Node_MacroInstance",
+					"nodeTitle": "Is Valid",
+					"nodeComment": "",
+					"positionX": 80,
+					"positionY": 560,
+					"pins": [
+						{
+							"pinId": "41216EE346A7DEA55BBB26ACF9DB9F37",
+							"pinName": "exec",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"08C8C07D411D2F1412B86DBD8DB8EA11"
+							]
+						},
+						{
+							"pinId": "B552621E4197817EA6DDEABD4033A908",
+							"pinName": "InputObject",
+							"direction": "input",
+							"pinType": "object:/Script/CoreUObject.Object",
+							"defaultValue": "",
+							"linkedTo": [
+								"D9A815FA4D7B230948A0B0BB413B9D13"
+							]
+						},
+						{
+							"pinId": "9FE5F6E5433BB208B86433BA41771E43",
+							"pinName": "Is Valid",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"347FB8DB470C5D53043C6AAABD5AA9F1"
+							]
+						},
+						{
+							"pinId": "BEFDE4FB4599F9284395E6A9D9BB7910",
+							"pinName": "Is Not Valid",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "/Engine/EditorBlueprintResources/StandardMacros.StandardMacros:IsValid",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "AE813B494D87A6E7FB6D5291D825D1F0",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Spawn System Attached",
+					"nodeComment": "",
+					"positionX": 752,
+					"positionY": 608,
+					"pins": [
+						{
+							"pinId": "0A04442448E5DC3D55A15693DF650172",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"6A3685D94C5698C633460CB2B90724B9"
+							]
+						},
+						{
+							"pinId": "07C2BF3D4319B888E18C0BAEBA9B0890",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "9471F3DD4AD9D5695F120284BF7575E5",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Niagara.NiagaraFunctionLibrary",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "5BE560F54D72FE6BFB97BDB6CBD13D3A",
+							"pinName": "SystemTemplate",
+							"direction": "input",
+							"pinType": "object:/Script/Niagara.NiagaraSystem",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "7BF733D2448B2D78EBCFE790196B5402",
+							"pinName": "AttachToComponent",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SceneComponent",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "0DF25406409C31427C34C5AA14916762",
+							"pinName": "AttachPointName",
+							"direction": "input",
+							"pinType": "name",
+							"defaultValue": "muzzle",
+							"linkedTo": []
+						},
+						{
+							"pinId": "0972C8F74E9F92C92A071EB99B792A48",
+							"pinName": "Location",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Vector",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": []
+						},
+						{
+							"pinId": "221B733A48BCF828E62D539548EC7D2D",
+							"pinName": "Rotation",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Rotator",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": []
+						},
+						{
+							"pinId": "6979806C4B8153F0D414A2BAB7F4B7FE",
+							"pinName": "LocationType",
+							"direction": "input",
+							"pinType": "byte:/Script/Engine.EAttachLocation",
+							"defaultValue": "KeepRelativeOffset",
+							"linkedTo": []
+						},
+						{
+							"pinId": "64B805FD418AF3410ACD9D875C09F703",
+							"pinName": "bAutoDestroy",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "true",
+							"linkedTo": []
+						},
+						{
+							"pinId": "BFFFA91C44167D4C70EABE98A8964EA2",
+							"pinName": "bAutoActivate",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "true",
+							"linkedTo": []
+						},
+						{
+							"pinId": "FA8568D64F854BB7C7216988CC73183B",
+							"pinName": "PoolingMethod",
+							"direction": "input",
+							"pinType": "byte:/Script/Niagara.ENCPoolMethod",
+							"defaultValue": "None",
+							"linkedTo": []
+						},
+						{
+							"pinId": "4051A0694A44C01DFCDC94BB2E7C69C2",
+							"pinName": "bPreCullCheck",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "true",
+							"linkedTo": []
+						},
+						{
+							"pinId": "D84CE2864A1A07A177819C9E260B7D00",
+							"pinName": "ReturnValue",
+							"direction": "output",
+							"pinType": "object:/Script/Niagara.NiagaraComponent",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "SpawnSystemAttached",
+						"memberParentClass": "/Script/Niagara.NiagaraFunctionLibrary",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "69F59F3549E8ADB983E2F081B01E99E6",
+					"nodeClass": "K2Node_Event",
+					"nodeTitle": "Event OnFireStarted",
+					"nodeComment": "",
+					"positionX": -144,
+					"positionY": 560,
+					"pins": [
+						{
+							"pinId": "26913B5B4851BA370F74C986FB7378FC",
+							"pinName": "OutputDelegate",
+							"direction": "output",
+							"pinType": "delegate",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "08C8C07D411D2F1412B86DBD8DB8EA11",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"41216EE346A7DEA55BBB26ACF9DB9F37"
+							]
+						},
+						{
+							"pinId": "D9A815FA4D7B230948A0B0BB413B9D13",
+							"pinName": "Weapon",
+							"direction": "output",
+							"pinType": "object:/Engine/Transient.LIVECODING_WeaponBase_0",
+							"defaultValue": "",
+							"linkedTo": [
+								"B552621E4197817EA6DDEABD4033A908",
+								"A36A1DA44D5C7E427D12A1B2B95107D8"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "OnFireStarted",
+						"memberParentClass": "/Script/CattleGame.GA_WeaponFire",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "4B309CDA4CAEB5A3FB4F89B2D70AE3AF",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Get Actor Location\nTarget is Actor",
+					"nodeComment": "",
+					"positionX": 96,
+					"positionY": 688,
+					"pins": [
+						{
+							"pinId": "A36A1DA44D5C7E427D12A1B2B95107D8",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.Actor",
+							"defaultValue": "",
+							"linkedTo": [
+								"D9A815FA4D7B230948A0B0BB413B9D13"
+							]
+						},
+						{
+							"pinId": "61597ECB4F749AF9655F4F821BCD8DA5",
+							"pinName": "ReturnValue",
+							"direction": "output",
+							"pinType": "struct:/Script/CoreUObject.Vector",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": [
+								"8EDDCBE0450CAF7A6FA8838567230068"
+							]
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "K2_GetActorLocation",
+						"memberParentClass": "/Script/Engine.Actor",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": true,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": true,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "true"
+					}
+				},
+				{
+					"nodeGuid": "5E62FA2944E6964E31D04B9955FA2E1B",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Play Sound at Location",
+					"nodeComment": "",
+					"positionX": 416,
+					"positionY": 608,
+					"pins": [
+						{
+							"pinId": "8B53D92948B9F870413C78858C295562",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "6A3685D94C5698C633460CB2B90724B9",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"0A04442448E5DC3D55A15693DF650172"
+							]
+						},
+						{
+							"pinId": "7BE3ED3D429BCC2649FC80A4F84E59DE",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.GameplayStatics",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "4D5E3B104475773389A7E39517C61A74",
+							"pinName": "WorldContextObject",
+							"direction": "input",
+							"pinType": "object:/Script/CoreUObject.Object",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "9B7E34894A7DF647614979861E3EA807",
+							"pinName": "Sound",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SoundBase",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "8EDDCBE0450CAF7A6FA8838567230068",
+							"pinName": "Location",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Vector",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": [
+								"61597ECB4F749AF9655F4F821BCD8DA5"
+							]
+						},
+						{
+							"pinId": "2DF845D04DD774724763DEBC704B9657",
+							"pinName": "Rotation",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.Rotator",
+							"defaultValue": "0, 0, 0",
+							"linkedTo": []
+						},
+						{
+							"pinId": "0C1A77054A33AFC05FAADBBD24E5E6FC",
+							"pinName": "VolumeMultiplier",
+							"direction": "input",
+							"pinType": "real:float",
+							"defaultValue": "1.000000",
+							"linkedTo": []
+						},
+						{
+							"pinId": "0ECC4EDF426C3DFB16BFC9BC7177BF40",
+							"pinName": "PitchMultiplier",
+							"direction": "input",
+							"pinType": "real:float",
+							"defaultValue": "1.000000",
+							"linkedTo": []
+						},
+						{
+							"pinId": "EF50E91746FD02913E42E7B06960F8C3",
+							"pinName": "StartTime",
+							"direction": "input",
+							"pinType": "real:float",
+							"defaultValue": "0.000000",
+							"linkedTo": []
+						},
+						{
+							"pinId": "631E33034305A474E4154196089DCCA5",
+							"pinName": "AttenuationSettings",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SoundAttenuation",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "0727FDC9424FC8CF728F3A90495D65DF",
+							"pinName": "ConcurrencySettings",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.SoundConcurrency",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "432522ED404EF55880488897B15C063A",
+							"pinName": "OwningActor",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.Actor",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "863735CD4A9FBBA2D42A5CAE933B7F8F",
+							"pinName": "InitialParams",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.InitialActiveSoundParams",
+							"defaultValue": "",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "PlaySoundAtLocation",
+						"memberParentClass": "/Script/Engine.GameplayStatics",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				},
+				{
+					"nodeGuid": "4E00C6874E94C4A28D101E91498E878D",
+					"nodeClass": "K2Node_CallFunction",
+					"nodeTitle": "Print String",
+					"nodeComment": "",
+					"positionX": 416,
+					"positionY": 400,
+					"pins": [
+						{
+							"pinId": "347FB8DB470C5D53043C6AAABD5AA9F1",
+							"pinName": "execute",
+							"direction": "input",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": [
+								"9FE5F6E5433BB208B86433BA41771E43"
+							]
+						},
+						{
+							"pinId": "F00FA62B417B00F5D32ED6A6722AB15B",
+							"pinName": "then",
+							"direction": "output",
+							"pinType": "exec",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "9258E2094841727A5DC26C897D5EC588",
+							"pinName": "self",
+							"direction": "input",
+							"pinType": "object:/Script/Engine.KismetSystemLibrary",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "D597C3694F359E472FCA2D9C9C6164B9",
+							"pinName": "WorldContextObject",
+							"direction": "input",
+							"pinType": "object:/Script/CoreUObject.Object",
+							"defaultValue": "",
+							"linkedTo": []
+						},
+						{
+							"pinId": "904378F34C86088FED6C0AB167FAC81F",
+							"pinName": "InString",
+							"direction": "input",
+							"pinType": "string",
+							"defaultValue": "Hello",
+							"linkedTo": []
+						},
+						{
+							"pinId": "F699AE534BACC01FCED9BAB9B444BB3C",
+							"pinName": "bPrintToScreen",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "true",
+							"linkedTo": []
+						},
+						{
+							"pinId": "4338CBA54EF5C5420CC54FADF8C9272F",
+							"pinName": "bPrintToLog",
+							"direction": "input",
+							"pinType": "bool",
+							"defaultValue": "true",
+							"linkedTo": []
+						},
+						{
+							"pinId": "E86F005B43715D669BB4FAA8911F6E88",
+							"pinName": "TextColor",
+							"direction": "input",
+							"pinType": "struct:/Script/CoreUObject.LinearColor",
+							"defaultValue": "(R=0.000000,G=0.660000,B=1.000000,A=1.000000)",
+							"linkedTo": []
+						},
+						{
+							"pinId": "A08FD8D544D5D6F0B2896BB653C521ED",
+							"pinName": "Duration",
+							"direction": "input",
+							"pinType": "real:float",
+							"defaultValue": "2.000000",
+							"linkedTo": []
+						},
+						{
+							"pinId": "40C39615489C906DE63A8581BCC6B5A7",
+							"pinName": "Key",
+							"direction": "input",
+							"pinType": "name",
+							"defaultValue": "None",
+							"linkedTo": []
+						}
+					],
+					"functionReference":
+					{
+						"memberName": "PrintString",
+						"memberParentClass": "/Script/Engine.KismetSystemLibrary",
+						"memberGuid": "00000000000000000000000000000000",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"eventReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"variableReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"delegateReference":
+					{
+						"memberName": "",
+						"memberParentClass": "",
+						"memberGuid": "",
+						"bIsSelfContext": false,
+						"bIsConstFunc": false,
+						"bIsLocalScope": false
+					},
+					"targetClass": "",
+					"spawnClass": "",
+					"enumType": "",
+					"structType": "",
+					"macroReference": "",
+					"timelineName": "",
+					"literalValue": "",
+					"customEventName": "",
+					"inputActionName": "",
+					"inputKey": "",
+					"bIsPure": false,
+					"bIsLatent": false,
+					"bSelfContext": false,
+					"nodeSpecificData":
+					{
+						"IsNodePure": "false"
+					}
+				}
+			]
+		}
+	],
+	"functions": [],
+	"macros": [],
+	"components": [],
+	"implementedInterfaces": [],
+	"hardDependencies": [],
+	"softDependencies": []
+}
