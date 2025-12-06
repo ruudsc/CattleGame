@@ -21,46 +21,6 @@ ADynamite::ADynamite()
 	DynamiteMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
-void ADynamite::EquipWeapon()
-{
-	// Call base to fire event
-	Super::EquipWeapon();
-
-	// Attach to character hand socket
-	AttachToCharacterHand();
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Dynamite::EquipWeapon - Attached to character hand"));
-}
-
-void ADynamite::UnequipWeapon()
-{
-	// Detach from character
-	// DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-
-	// Call base to fire event
-	Super::UnequipWeapon();
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Dynamite::UnequipWeapon - Detached from character"));
-}
-
-void ADynamite::Fire()
-{
-	// Trigger blueprint event for local cosmetics
-	Super::Fire();
-
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner || !CanFire())
-	{
-		return;
-	}
-
-	const FVector SpawnLocation = CurrentOwner->GetActorLocation() + CurrentOwner->GetActorForwardVector() * 100.0f;
-	const FVector LaunchDirection = CurrentOwner->GetControlRotation().Vector();
-
-	// Client-predicted spawn request
-	RequestServerFireWithPrediction(SpawnLocation, LaunchDirection);
-}
-
 bool ADynamite::CanFire() const
 {
 	// Can fire if we have ammo and weapon is equipped
@@ -70,18 +30,6 @@ bool ADynamite::CanFire() const
 	}
 
 	return true;
-}
-
-void ADynamite::Reload()
-{
-	// For dynamite, reload just fills ammo to max
-	Super::Reload();
-
-	if (HasAuthority())
-	{
-		CurrentAmmo = MaxAmmo;
-		UE_LOG(LogGASDebug, Warning, TEXT("Dynamite::Reload - Ammo refilled to %d"), MaxAmmo);
-	}
 }
 
 bool ADynamite::CanReload() const
@@ -105,44 +53,6 @@ void ADynamite::AddAmmo(int32 Amount)
 	CurrentAmmo = FMath::Min(CurrentAmmo + Amount, MaxAmmo);
 	UE_LOG(LogGASDebug, Warning, TEXT("Dynamite::AddAmmo - Added %d ammo, total: %d/%d"),
 		   Amount, CurrentAmmo, MaxAmmo);
-}
-
-void ADynamite::SpawnDynamiteProjectile()
-{
-	if (!GetWorld() || !ProjectileClass || !OwnerCharacter)
-	{
-		UE_LOG(LogGASDebug, Error, TEXT("Dynamite::SpawnDynamiteProjectile - Missing world, projectile class, or owner"));
-		return;
-	}
-
-	// Get spawn location from weapon muzzle (approximate - camera forward for now)
-	FVector SpawnLocation = OwnerCharacter->GetActorLocation() + OwnerCharacter->GetActorForwardVector() * 100.0f;
-	FRotator SpawnRotation = OwnerCharacter->GetControlRotation();
-
-	// Spawn the projectile
-	ADynamiteProjectile *Projectile = GetWorld()->SpawnActor<ADynamiteProjectile>(
-		ProjectileClass,
-		SpawnLocation,
-		SpawnRotation);
-
-	if (Projectile)
-	{
-		// Initialize projectile properties
-		Projectile->SetOwner(OwnerCharacter);
-		Projectile->SetExplosionProperties(ExplosionRadius, ExplosionDamage);
-		Projectile->SetFuseTime(FuseTime);
-
-		// Apply throwing force
-		FVector ThrowDirection = SpawnRotation.Vector();
-		Projectile->Launch(ThrowDirection, ThrowForce);
-
-		UE_LOG(LogGASDebug, Warning, TEXT("Dynamite::SpawnDynamiteProjectile - Projectile spawned at %s with force %f"),
-			   *SpawnLocation.ToString(), ThrowForce);
-	}
-	else
-	{
-		UE_LOG(LogGASDebug, Error, TEXT("Dynamite::SpawnDynamiteProjectile - Failed to spawn projectile"));
-	}
 }
 
 void ADynamite::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
@@ -185,26 +95,4 @@ void ADynamite::OnServerFire(const FVector &SpawnLocation, const FVector &Launch
 	{
 		UE_LOG(LogGASDebug, Error, TEXT("Dynamite::OnServerFire - Failed to spawn projectile"));
 	}
-}
-
-void ADynamite::AttachToCharacterHand()
-{
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner)
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Dynamite::AttachToCharacterHand - No owner character"));
-		return;
-	}
-
-	USkeletalMeshComponent *TargetMesh = CurrentOwner->GetActiveCharacterMesh();
-	if (!TargetMesh)
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Dynamite::AttachToCharacterHand - No active character mesh"));
-		return;
-	}
-
-	FAttachmentTransformRules AttachRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, true);
-	AttachToComponent(TargetMesh, AttachRules, DynamiteHandSocketName);
-
-	UE_LOG(LogGASDebug, Log, TEXT("Dynamite::AttachToCharacterHand - Attached to socket %s on mesh %s"), *DynamiteHandSocketName.ToString(), *TargetMesh->GetName());
 }

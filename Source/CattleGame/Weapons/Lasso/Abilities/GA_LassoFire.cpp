@@ -106,14 +106,29 @@ void UGA_LassoFire::FireLasso()
 		return;
 	}
 
-	UE_LOG(LogGASDebug, Warning, TEXT("LassoFire Ability: FireLasso - Calling Lasso->Fire()"));
+	ACattleCharacter *Character = Cast<ACattleCharacter>(CurrentActorInfo->OwnerActor.Get());
+	if (!Character)
+	{
+		UE_LOG(LogGASDebug, Error, TEXT("LassoFire Ability: FireLasso - No character"));
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
 
-	// Add firing state tag
+	UE_LOG(LogGASDebug, Warning, TEXT("LassoFire Ability: FireLasso - Throwing lasso"));
+
+	// Add firing state tag and execute GameplayCue for VFX/Audio (one-shot)
 	if (UAbilitySystemComponent *ASC = CurrentActorInfo->AbilitySystemComponent.Get())
 	{
 		ASC->AddLooseGameplayTag(CattleGameplayTags::State_Lasso_Active);
+
+		// Execute GameplayCue for replicated VFX/Audio (one-shot burst effect)
+		ASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_Lasso_Throw);
 	}
 
-	// Fire the lasso
-	LassoWeapon->Fire();
+	// Get spawn location and direction from character
+	FVector SpawnLocation = Character->GetActorLocation() + Character->GetActorForwardVector() * 100.0f + FVector(0, 0, 50);
+	FVector LaunchDirection = Character->GetControlRotation().Vector();
+
+	// Call server to throw the lasso
+	LassoWeapon->ServerFire(SpawnLocation, LaunchDirection);
 }

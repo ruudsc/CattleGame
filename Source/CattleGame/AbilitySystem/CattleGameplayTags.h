@@ -41,4 +41,15 @@ namespace CattleGameplayTags
 
 	// Effect Tags
 	extern FNativeGameplayTag Effect_Damage;
+
+	// GameplayCue Tags
+	extern FNativeGameplayTag GameplayCue_Revolver_Fire;
+	extern FNativeGameplayTag GameplayCue_Revolver_Fire_Impact;
+	extern FNativeGameplayTag GameplayCue_Revolver_Reload;
+	extern FNativeGameplayTag GameplayCue_HitReaction;
+	extern FNativeGameplayTag GameplayCue_Trumpet_Lure;
+	extern FNativeGameplayTag GameplayCue_Trumpet_Scare;
+	extern FNativeGameplayTag GameplayCue_Lasso_Throw;
+	extern FNativeGameplayTag GameplayCue_Dynamite_Throw;
+	extern FNativeGameplayTag GameplayCue_Dynamite_Explode;
 }

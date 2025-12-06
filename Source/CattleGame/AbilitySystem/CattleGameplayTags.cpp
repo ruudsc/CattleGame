@@ -39,4 +39,15 @@ namespace CattleGameplayTags
 
 	// Effect Tags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Damage, "Effect.Damage", "Tag for damage effects");
+
+	// GameplayCue Tags
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Revolver_Fire, "GameplayCue.Revolver.Fire", "GameplayCue for revolver fire VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Revolver_Fire_Impact, "GameplayCue.Revolver.Fire.Impact", "GameplayCue for revolver bullet impact VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Revolver_Reload, "GameplayCue.Revolver.Reload", "GameplayCue for revolver reload VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_HitReaction, "GameplayCue.HitReaction", "GameplayCue for hit reaction VFX/Audio on damaged pawns");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Trumpet_Lure, "GameplayCue.Trumpet.Lure", "GameplayCue for trumpet lure VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Trumpet_Scare, "GameplayCue.Trumpet.Scare", "GameplayCue for trumpet scare VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Lasso_Throw, "GameplayCue.Lasso.Throw", "GameplayCue for lasso throw VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Dynamite_Throw, "GameplayCue.Dynamite.Throw", "GameplayCue for dynamite throw VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Dynamite_Explode, "GameplayCue.Dynamite.Explode", "GameplayCue for dynamite explosion VFX/Audio");
 }

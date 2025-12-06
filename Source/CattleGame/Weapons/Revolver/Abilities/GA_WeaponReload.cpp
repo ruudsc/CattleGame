@@ -154,13 +154,14 @@ void UGA_WeaponReload::StartReload()
 	if (UAbilitySystemComponent *ASC = GetAbilitySystemComponentFromActorInfo())
 	{
 		ASC->AddLooseGameplayTag(CattleGameplayTags::State_Weapon_Reloading);
+		ASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_Revolver_Reload, FGameplayCueParameters());
 	}
 
 	// Broadcast that reload is starting
 	OnReloadStarted(Weapon);
 
-	// Call the weapon's reload method
-	Weapon->Reload();
+	// Weapon no longer has Reload() method - cosmetics should be in Blueprint or C++ ability implementation
+	UE_LOG(LogGASDebug, Warning, TEXT("ReloadWeapon: Reloading weapon (cosmetics in Blueprint)"));
 
 	// Get reload duration from weapon
 	float ReloadDuration = 2.0f; // Default fallback

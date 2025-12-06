@@ -58,9 +58,6 @@ public:
 
 	// ===== WEAPON INTERFACE =====
 
-	/** Override Fire to cast the lasso (Primary Fire) */
-	virtual void Fire() override;
-
 	/** Check if lasso can be thrown */
 	virtual bool CanFire() const;
 
@@ -71,6 +68,10 @@ public:
 	/** Start retracting the rope back to player */
 	UFUNCTION(BlueprintCallable, Category = "Lasso")
 	void StartRetract();
+
+	/** Force reset lasso to idle state - called when weapon is unequipped */
+	UFUNCTION(BlueprintCallable, Category = "Lasso")
+	void ForceReset();
 
 	// ===== LASSO STATE =====
 
@@ -121,14 +122,6 @@ public:
 
 	/** Helper to add/remove gameplay tags from character's ability system */
 	void UpdateCharacterAbilityTag(AActor *Character, const FGameplayTag &Tag, bool bAdd);
-
-	// ===== WEAPON INTERFACE OVERRIDES =====
-
-	/** Override equip to attach to character hand */
-	virtual void EquipWeapon() override;
-
-	/** Override unequip to detach from character */
-	virtual void UnequipWeapon() override;
 
 	// ===== BLUEPRINT EVENTS =====
 
@@ -210,12 +203,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Lasso|Events")
 	void OnProjectileDestroyed();
 	virtual void OnProjectileDestroyed_Implementation();
-
-	// ===== SOCKET CONSTANTS =====
-
-	/** Socket name for lasso attachment on character skeleton */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Attachment")
-	FName LassoHandSocketName = FName(TEXT("HandGrip_R_Lasso"));
 
 	// ===== VISIBILITY =====
 
@@ -317,9 +304,6 @@ private:
 	/** Transition to a new state */
 	void SetState(ELassoState NewState);
 
-	/** Attach lasso mesh to character hand socket */
-	void AttachToCharacterHand();
-
 	/** Update gameplay tags based on state */
 	void UpdateStateTags(ELassoState OldState, ELassoState NewState);
 
@@ -345,9 +329,10 @@ private:
 	/** Apply elastic tether force to both player and target */
 	void ApplyElasticTetherForce(float DeltaTime);
 
+public:
 	// ===== SERVER RPCS =====
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Lasso")
 	void ServerFire(const FVector_NetQuantize &SpawnLocation, const FVector_NetQuantizeNormal &LaunchDirection);
 
 	UFUNCTION(Server, Reliable)
