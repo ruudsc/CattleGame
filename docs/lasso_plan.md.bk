@@ -1,0 +1,182 @@
+# Lasso System – Implementation Plan (UE 5.6 + GAS)
+
+## Overview
+This document outlines the full implementation plan for a **Lasso System** in **Unreal Engine 5.6** using **Gameplay Ability System (GAS)**, **Enhanced Input**, and modular weapon architecture.
+
+---
+
+## 1. System Goals
+- Allow the player to throw a lasso projectile.
+- If the projectile hits a target, establish a tether.
+- While holding the fire input, maintain pulling force.
+- On release, deactivate the pull and clean up the lasso.
+- Support multiplayer, prediction, and replication.
+
+---
+
+## 2. Required Components
+### **2.1 Actor Classes**
+- **ALassoProjectile** – handles collision, physics, and hit detection.
+- **ALassoTether** (optional) – draws spline or cable.
+- **ALasso** (weapon actor) – owns projectile class, animations, and editor configuration.
+
+### **2.2 Gameplay Ability Classes**
+- **UGameplayAbility_LassoFire** – activates on input *Started*, maintains pull *while held*, and stops *OnCompleted*.
+- **UGameplayAbility_LassoPullEffect** (optional) – applies continuous pull.
+
+### **2.3 Gameplay Effects / Attributes**
+- Mostly optional unless stamina/energy consumes.
+
+### **2.4 Components**
+- **UInventoryComponent** – gives abilities when weapon equipped.
+- **UAbilitySystemComponent** – enables attribute and ability management.
+
+---
+
+## 3. Lasso Ability State Flow
+### **Input Flow (Enhanced Input) → GAS**
+| Input Event | Ability Task |
+|-------------|--------------|
+| **Started** | Spawn projectile → Begin tracing hit detection |
+| **Triggered (held)** | Maintain pull force → Update lasso tension |
+| **Completed / Canceled** | Destroy tether → Release target |
+
+### **Ability Lifetime**
+```
+ActivateAbility
+  ├─ Spawn projectile
+  ├─ Wait for event: OnHit
+  ├─ OnHit → Create tether → Start continuous pull
+  ├─ Wait for input release
+  ├─ EndAbility → cleanup
+```
+
+---
+
+## 4. Implementation Steps
+### **4.1 Create Lasso Projectile (ALassoProjectile)**
+- Sphere collision set to **Query & Physics**.
+- Projectile movement component (gravity enabled).
+- OnHit delegate → calls back into the ability.
+- Replicated movement.
+- Tags identifying valid actors (e.g., `Target.Lassoable`).
+
+### **4.2 Ability: GameplayAbility_LassoFire**
+#### Activation policy
+```cpp
+ActivationPolicy = EGameplayAbilityActivationPolicy::OnInputTriggered;
+```
+Or use **OnInputStarted** with Enhanced Input triggers.
+
+#### Ability Tasks
+- `UAbilityTask_SpawnActor`
+- `UAbilityTask_WaitGameplayEvent` (OnHit)
+- `UAbilityTask_Repeat` to apply pull force each frame
+- `UAbilityTask_WaitInputRelease`
+
+#### Pull Force Logic
+- Get player's forward vector.
+- Calculate direction to target.
+- Apply force via:
+  - `AddForce()` (physics), or
+  - Move component logic if character-type.
+
+### **4.3 Visual Tether (Cable or Spline)**
+- Use **UCableComponent** on weapon.
+- On projectile hit: attach cable end to hit component.
+- On release: disable/hide cable.
+
+---
+
+## 5. Networking / Replication Notes
+### **Projectile**
+- Server spawns projectile.
+- Client uses **prediction** for visuals.
+
+### **Hit Events**
+- Use **Gameplay Events** to notify ability.
+
+### **Tether / Pull**
+- Pull logic runs on the **server**.
+- Visual cable runs on **client** only.
+
+### Prediction Windows
+If using **projectile prediction**, allow small correction window.
+
+---
+
+## 6. Weapon Integration (Inventory System)
+### Steps when equipping weapon
+1. Weapon gives ability `GameplayAbility_LassoFire`.
+2. Ability binds to input action `IA_LassoFire`.
+3. Weapon provides data:
+   - Projectile class
+   - Pull strength
+   - Max distance
+   - Cable visuals
+
+---
+
+## 7. Editor Setup
+### **Content Browser**
+- Import `LassoThrow.wav`, `LassoPull.wav`.
+- Create **MetaSound** assets for looping pull audio.
+- Create VFX:
+  - Projectile trail
+  - Hit impact
+
+### **Blueprint Setup**
+- BP_Lasso inherits from ALasso.
+- BP_LassoProjectile inherits from projectile C++ class.
+- Configure mesh + collision.
+
+### **Ability Editor Setup**
+- Set ability tags:
+  - `Ability.Weapon.Lasso`
+  - `Ability.Action.PrimaryFire`
+- Set replication policy: **ServerInitiated**.
+
+---
+
+## 8. Cleanup Logic
+- On ability end:
+  - Destroy projectile.
+  - Clear cable/tether.
+  - Stop looping pull audio.
+  - Remove force from target.
+
+- Ensure cleanup happens on:
+  - Input release
+  - Owner death
+  - Weapon switch
+  - Projectile timeout
+
+---
+
+## 9. Optional Extras
+### **Skill Upgrades**
+- Increased pull strength
+- Fire multiple ropes
+- Stun targets when lassoed
+
+### **Animations**
+- Add montage for throw
+- Add montage for maintaining pull
+
+### **Camera Shake**
+- When rope becomes taut
+
+---
+
+## 10. Debugging Tools
+- Draw debug lines for tether
+- Log projectile hit events
+- Print ability activation state
+- Use `AbilitySystemDebugger` in PIE
+- Show rope tension number on HUD
+
+---
+
+## Final Notes
+This system is **modular**, **GAS-native**, replicates cleanly, and is designed for extensibility (combat, traversal, puzzles, etc.).
+

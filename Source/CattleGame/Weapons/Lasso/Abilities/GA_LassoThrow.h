@@ -2,24 +2,25 @@
 
 #include "CoreMinimal.h"
 #include "CattleGame/AbilitySystem/Abilities/GA_Weapon.h"
-#include "GA_LassoFire.generated.h"
+#include "GA_LassoThrow.generated.h"
 
 class ALasso;
 
 /**
- * Lasso Fire Ability - Cast lasso projectile.
+ * Lasso Throw Ability - Main lasso action.
  *
- * Input Binding: Primary Fire (Mouse LMB)
- * Activation: Started (on key press)
- * Duration: While held, maintains lasso pull force
- * Cleanup: OnCompleted, releases lasso if active
+ * Behavior:
+ * - Idle state: Throw lasso (spawn projectile), ends immediately
+ * - Tethered state: Pull target while input held, ends on release
  */
 UCLASS(Blueprintable)
-class CATTLEGAME_API UGA_LassoFire : public UGA_Weapon
+class CATTLEGAME_API UGA_LassoThrow : public UGA_Weapon
 {
 	GENERATED_BODY()
 
 public:
+	UGA_LassoThrow();
+
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo,
 								 const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData *TriggerEventData) override;
 
@@ -30,10 +31,17 @@ public:
 									const FGameplayTagContainer *SourceTags = nullptr, const FGameplayTagContainer *TargetTags = nullptr,
 									OUT FGameplayTagContainer *OptionalRelevantTags = nullptr) const override;
 
+	/** Called when input is released - used to stop pulling */
+	virtual void InputReleased(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo,
+							   const FGameplayAbilityActivationInfo ActivationInfo) override;
+
 protected:
-	/** Get lasso weapon (cast to ALasso) */
+	/** Get lasso weapon (cast) */
 	ALasso *GetLassoWeapon() const;
 
-	/** Fire the lasso projectile */
-	void FireLasso();
+	/** Execute the throw */
+	void ExecuteThrow();
+
+	/** Track if we're in pull mode (need to end ability on input release) */
+	bool bIsPullMode = false;
 };

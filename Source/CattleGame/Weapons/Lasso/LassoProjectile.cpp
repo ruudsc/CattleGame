@@ -1,400 +1,319 @@
 #include "LassoProjectile.h"
 #include "Lasso.h"
+#include "LassoableComponent.h"
 #include "Components/SphereComponent.h"
-#include "CableComponent/Classes/CableComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Engine/OverlapResult.h"
 #include "Net/UnrealNetwork.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/Character.h"
 #include "CattleGame/CattleGame.h"
-#include "Kismet/KismetSystemLibrary.h"
+
+// Frame-rate throttling for verbose logs
+static int32 ProjectileTickLogCounter = 0;
+static const int32 ProjectileTickLogInterval = 15; // Log every 15 frames (~0.25s at 60fps)
 
 ALassoProjectile::ALassoProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-	SetReplicateMovement(true);
 
-	// Create collision sphere as root
-	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
-	CollisionSphere->SetSphereRadius(25.0f); // Larger for aim assist
-	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
-	CollisionSphere->SetCollisionResponseToAllChannels(ECR_Block);
-	CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap); // Overlap with pawns for aim assist
-	RootComponent = CollisionSphere;
+	// Create small collision sphere for hit detection
+	HitSphere = CreateDefaultSubobject<USphereComponent>(TEXT("HitSphere"));
+	HitSphere->SetSphereRadius(30.0f);
+	HitSphere->SetGenerateOverlapEvents(true);
+	HitSphere->SetNotifyRigidBodyCollision(true);
 
-	// Create mesh component for rope loop visual
-	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
-	MeshComponent->SetupAttachment(CollisionSphere);
-	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// Custom collision: Block world geometry (for miss), Overlap pawns (for capture without pushback)
+	HitSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	HitSphere->SetCollisionObjectType(ECC_WorldDynamic);
+	HitSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	HitSphere->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);	 // Block ground/walls
+	HitSphere->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap); // Overlap dynamic
+	HitSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);		 // Overlap pawns (no push)
 
-	// Create cable component for rope visual
-	CableComponent = CreateDefaultSubobject<UCableComponent>(TEXT("CableComponent"));
-	CableComponent->SetupAttachment(CollisionSphere);
-	CableComponent->CableLength = 0.0f; // Will be updated dynamically
-	CableComponent->CableWidth = 2.0f;
-	CableComponent->NumSegments = 10;
-	CableComponent->bEnableStiffness = false;
-	CableComponent->SolverIterations = 4;
+	RootComponent = HitSphere;
 
-	// Create projectile movement
+	// Create visible mesh for the flying rope loop (Visual Only)
+	RopeLoopMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RopeLoopMesh"));
+	RopeLoopMesh->SetupAttachment(RootComponent);
+	RopeLoopMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	RopeLoopMesh->SetCastShadow(false);
+
+	// Create projectile movement for arc physics
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
-	ProjectileMovement->UpdatedComponent = CollisionSphere;
-	ProjectileMovement->InitialSpeed = 1500.0f;
-	ProjectileMovement->MaxSpeed = 3000.0f;
+	ProjectileMovement->InitialSpeed = InitialSpeed;
+	ProjectileMovement->MaxSpeed = InitialSpeed * 1.5f;
+	ProjectileMovement->ProjectileGravityScale = GravityScale;
+	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bShouldBounce = false;
-	ProjectileMovement->Friction = 0.0f;
-	ProjectileMovement->ProjectileGravityScale = 0.5f; // Arc trajectory
 }
 
 void ALassoProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Bind collision and overlap events
-	if (CollisionSphere)
-	{
-		CollisionSphere->OnComponentHit.AddDynamic(this, &ALassoProjectile::OnCollision);
-		CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &ALassoProjectile::OnOverlapBegin);
-	}
+	// Bind collision events
+	HitSphere->OnComponentHit.AddDynamic(this, &ALassoProjectile::OnHit);
+	HitSphere->OnComponentBeginOverlap.AddDynamic(this, &ALassoProjectile::OnOverlapBegin);
 
-	// Store initial owner location for range checking
-	if (GetOwner())
-	{
-		OwnerInitialLocation = GetOwner()->GetActorLocation();
+	UE_LOG(LogLasso, Log, TEXT("LassoProjectile::BeginPlay - Collision events bound, sphere radius=%.1f"),
+		   HitSphere->GetScaledSphereRadius());
 
-		// Attach cable end to owner's hand socket
-		if (CableComponent)
-		{
-			if (ACharacter *OwnerCharacter = Cast<ACharacter>(GetOwner()))
-			{
-				CableComponent->SetAttachEndTo(OwnerCharacter, NAME_None, FName("hand_rSocket"));
-			}
-		}
-	}
+	// Apply configured values to movement component
+	ProjectileMovement->InitialSpeed = InitialSpeed;
+	ProjectileMovement->MaxSpeed = InitialSpeed * 1.5f;
+	ProjectileMovement->ProjectileGravityScale = GravityScale;
 
-	UE_LOG(LogGASDebug, Log, TEXT("LassoProjectile::BeginPlay - Lasso projectile spawned"));
+	ProjectileTickLogCounter = 0;
 }
 
 void ALassoProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Handle retract mode
-	if (bIsRetracting)
+	if (bHasHit)
 	{
-		TickRetract(DeltaTime);
 		return;
 	}
 
-	// Update distance traveled
-	if (GetOwner())
+	// Update flight timer
+	FlightTime += DeltaTime;
+	if (FlightTime >= MaxFlightTime)
 	{
-		float CurrentDistance = FVector::Dist(GetActorLocation(), OwnerInitialLocation);
-		DistanceTraveled = CurrentDistance;
-
-		// Check if lasso has exceeded range (auto-retract)
-		if (DistanceTraveled > LassoRange)
-		{
-			UE_LOG(LogGASDebug, Log, TEXT("LassoProjectile::Tick - Exceeded range, auto-retracting"));
-
-			// Notify weapon of miss
-			if (LassoWeapon && HasAuthority())
-			{
-				LassoWeapon->OnProjectileMissed();
-			}
-
-			StartRetract();
-			return;
-		}
+		UE_LOG(LogLasso, Log, TEXT("LassoProjectile::Tick - Max flight time (%.1fs) reached at %s, auto-miss"),
+			   MaxFlightTime, *GetActorLocation().ToString());
+		OnTargetMissed();
+		return;
 	}
 
-	// Update aim assist
+	// Throttled position/velocity logging
+	ProjectileTickLogCounter++;
+	if (ProjectileTickLogCounter >= ProjectileTickLogInterval)
+	{
+		ProjectileTickLogCounter = 0;
+		UE_LOG(LogLasso, Verbose, TEXT("LassoProjectile::Tick - FlightTime=%.2fs, Pos=%s, Vel=%s (speed=%.0f)"),
+			   FlightTime, *GetActorLocation().ToString(),
+			   *ProjectileMovement->Velocity.ToString(), ProjectileMovement->Velocity.Size());
+	}
+
+	// Update aim assist (server-authoritative)
 	if (HasAuthority())
 	{
-		UpdateAimAssist();
+		UpdateAimAssist(DeltaTime);
 	}
 }
 
-void ALassoProjectile::Launch(const FVector &Direction, float Speed)
+void ALassoProjectile::Launch(const FVector &Direction)
 {
-	if (!ProjectileMovement)
-	{
-		return;
-	}
+	FlightTime = 0.0f;
+	bHasHit = false;
+	AimAssistTarget = nullptr;
 
-	// Reset state
-	bIsRetracting = false;
-	bHasCaughtTarget = false;
-	AimAssistTarget.Reset();
-	DistanceTraveled = 0.0f;
+	// Set velocity
+	ProjectileMovement->Velocity = Direction.GetSafeNormal() * InitialSpeed;
 
-	// Re-enable collision (in case it was disabled from previous catch)
-	if (CollisionSphere)
-	{
-		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	}
-
-	// Store initial location
-	if (GetOwner())
-	{
-		OwnerInitialLocation = GetOwner()->GetActorLocation();
-	}
-
-	FVector NormalizedDirection = Direction.GetSafeNormal();
-	ProjectileMovement->Velocity = NormalizedDirection * Speed;
-	ProjectileMovement->Activate(true);
-
-	UE_LOG(LogGASDebug, Warning, TEXT("LassoProjectile::Launch - Launched with velocity %s, gravity=%.2f"),
-		   *ProjectileMovement->Velocity.ToString(), ProjectileMovement->ProjectileGravityScale);
+	UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::Launch - Launched! Speed=%.0f, Gravity=%.2f, MaxFlight=%.1fs, AimAssist(radius=%.0f, angle=%.0f)"),
+		   InitialSpeed, GravityScale, MaxFlightTime, AimAssistRadius, AimAssistAngle);
+	UE_LOG(LogLasso, Log, TEXT("  Direction=%s, StartPos=%s"),
+		   *Direction.ToString(), *GetActorLocation().ToString());
 }
 
-void ALassoProjectile::SetLassoProperties(float Speed, float MaxRange, float Gravity, float AimAssist, float AimAssistRange, float Retract)
+void ALassoProjectile::UpdateAimAssist(float DeltaTime)
 {
-	LassoSpeed = Speed;
-	LassoRange = MaxRange;
-	GravityScale = Gravity;
-	AimAssistAngle = AimAssist;
-	AimAssistMaxDistance = AimAssistRange;
-	RetractSpeed = Retract;
+	// Find best target in aim assist cone
+	TArray<FOverlapResult> Overlaps;
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(AimAssistRadius);
 
-	// Apply gravity scale
-	if (ProjectileMovement)
+	GetWorld()->OverlapMultiByChannel(
+		Overlaps,
+		GetActorLocation(),
+		FQuat::Identity,
+		ECC_Pawn,
+		Sphere);
+
+	AActor *BestTarget = nullptr;
+	float BestScore = -1.0f;
+	FVector CurrentDirection = ProjectileMovement->Velocity.GetSafeNormal();
+	int32 ValidTargetCount = 0;
+
+	for (const FOverlapResult &Overlap : Overlaps)
 	{
-		ProjectileMovement->ProjectileGravityScale = GravityScale;
-	}
-}
-
-void ALassoProjectile::SetLassoWeapon(ALasso *Weapon)
-{
-	LassoWeapon = Weapon;
-}
-
-void ALassoProjectile::StartRetract()
-{
-	if (bIsRetracting)
-	{
-		return;
-	}
-
-	bIsRetracting = true;
-
-	// Stop projectile movement
-	if (ProjectileMovement)
-	{
-		ProjectileMovement->StopMovementImmediately();
-		ProjectileMovement->Deactivate();
-	}
-
-	UE_LOG(LogGASDebug, Warning, TEXT("LassoProjectile::StartRetract - Beginning retraction at %.0f cm/s"), RetractSpeed);
-}
-
-void ALassoProjectile::TickRetract(float DeltaTime)
-{
-	if (!GetOwner())
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("LassoProjectile::TickRetract - No owner!"));
-		return;
-	}
-
-	// Move toward owner
-	FVector OwnerLocation = GetOwner()->GetActorLocation();
-	FVector CurrentLocation = GetActorLocation();
-	FVector Direction = (OwnerLocation - CurrentLocation).GetSafeNormal();
-
-	float MoveDistance = RetractSpeed * DeltaTime;
-	float RemainingDistance = FVector::Dist(CurrentLocation, OwnerLocation);
-
-	if (MoveDistance >= RemainingDistance)
-	{
-		// We've reached the owner
-		SetActorLocation(OwnerLocation);
-		UE_LOG(LogGASDebug, Warning, TEXT("LassoProjectile::TickRetract - Reached owner, calling OnRetractComplete"));
-
-		// Notify weapon we're done
-		if (LassoWeapon && HasAuthority())
+		AActor *Actor = Overlap.GetActor();
+		if (!IsValidTarget(Actor))
 		{
-			LassoWeapon->OnRetractComplete();
+			continue;
 		}
+
+		ValidTargetCount++;
+
+		// Check if within cone angle
+		FVector ToTarget = (Actor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+		float DotProduct = FVector::DotProduct(CurrentDirection, ToTarget);
+		float AngleRad = FMath::Acos(DotProduct);
+		float AngleDeg = FMath::RadiansToDegrees(AngleRad);
+
+		if (AngleDeg <= AimAssistAngle)
+		{
+			// Score based on angle (closer to center = higher score)
+			float Score = DotProduct;
+			if (Score > BestScore)
+			{
+				BestScore = Score;
+				BestTarget = Actor;
+			}
+
+			// Log each valid target in cone (verbose)
+			if (ProjectileTickLogCounter == 0)
+			{
+				UE_LOG(LogLasso, Verbose, TEXT("  AimAssist candidate: %s, angle=%.1f deg, score=%.3f"),
+					   *GetNameSafe(Actor), AngleDeg, Score);
+			}
+		}
+	}
+
+	// Log target selection changes
+	if (BestTarget != AimAssistTarget.Get())
+	{
+		if (BestTarget)
+		{
+			UE_LOG(LogLasso, Log, TEXT("LassoProjectile::UpdateAimAssist - NEW target acquired: %s (score=%.3f)"),
+				   *GetNameSafe(BestTarget), BestScore);
+		}
+		else if (AimAssistTarget.IsValid())
+		{
+			UE_LOG(LogLasso, Log, TEXT("LassoProjectile::UpdateAimAssist - Lost target %s"),
+				   *GetNameSafe(AimAssistTarget.Get()));
+		}
+	}
+
+	// Update aim assist target
+	AimAssistTarget = BestTarget;
+
+	// Smoothly steer toward target
+	if (BestTarget)
+	{
+		FVector ToTarget = (BestTarget->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+		FVector CurrentVelocity = ProjectileMovement->Velocity;
+		float Speed = CurrentVelocity.Size();
+
+		// Lerp direction toward target
+		FVector OldDirection = CurrentVelocity.GetSafeNormal();
+		FVector NewDirection = FMath::Lerp(OldDirection, ToTarget, AimAssistLerpSpeed * DeltaTime);
+		ProjectileMovement->Velocity = NewDirection.GetSafeNormal() * Speed;
+
+		// Throttled steering log
+		if (ProjectileTickLogCounter == 0)
+		{
+			float SteerAngle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(OldDirection, NewDirection)));
+			UE_LOG(LogLasso, Verbose, TEXT("LassoProjectile::UpdateAimAssist - Steering toward %s, steer=%.2f deg"),
+				   *GetNameSafe(BestTarget), SteerAngle);
+		}
+	}
+	else if (ProjectileTickLogCounter == 0 && Overlaps.Num() > 0)
+	{
+		UE_LOG(LogLasso, Verbose, TEXT("LassoProjectile::UpdateAimAssist - %d overlaps, %d valid, none in cone"),
+			   Overlaps.Num(), ValidTargetCount);
+	}
+}
+
+bool ALassoProjectile::IsValidTarget(AActor *Actor) const
+{
+	if (!Actor || Actor == GetOwner())
+	{
+		return false;
+	}
+
+	// Check for LassoableComponent (New RDR2 Method)
+	bool bHasLassoable = Actor->FindComponentByClass<ULassoableComponent>() != nullptr;
+	return bHasLassoable;
+}
+
+void ALassoProjectile::OnHit(UPrimitiveComponent *HitComponent, AActor *OtherActor,
+							 UPrimitiveComponent *OtherComp, FVector NormalImpulse, const FHitResult &Hit)
+{
+	UE_LOG(LogLasso, Log, TEXT("LassoProjectile::OnHit - COLLISION: Actor=%s, Component=%s, Location=%s, Normal=%s"),
+		   *GetNameSafe(OtherActor), *GetNameSafe(OtherComp),
+		   *Hit.ImpactPoint.ToString(), *Hit.ImpactNormal.ToString());
+
+	if (bHasHit || !HasAuthority())
+	{
+		UE_LOG(LogLasso, Verbose, TEXT("  IGNORED: bHasHit=%d, HasAuthority=%d"), bHasHit, HasAuthority());
+		return;
+	}
+
+	if (IsValidTarget(OtherActor))
+	{
+		UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::OnHit - VALID TARGET HIT: %s"), *GetNameSafe(OtherActor));
+		OnTargetHit(OtherActor);
 	}
 	else
 	{
-		// Move toward owner
-		SetActorLocation(CurrentLocation + Direction * MoveDistance);
+		// Hit world geometry or invalid target
+		UE_LOG(LogLasso, Log, TEXT("LassoProjectile::OnHit - MISS (hit non-target): %s"), *GetNameSafe(OtherActor));
+		OnTargetMissed();
 	}
 }
 
-void ALassoProjectile::UpdateAimAssist()
+void ALassoProjectile::OnOverlapBegin(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor,
+									  UPrimitiveComponent *OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult)
 {
-	if (!GetOwner() || bIsRetracting)
+	UE_LOG(LogLasso, Log, TEXT("LassoProjectile::OnOverlapBegin - OVERLAP: Actor=%s, Component=%s, bFromSweep=%d"),
+		   *GetNameSafe(OtherActor), *GetNameSafe(OtherComp), bFromSweep);
+
+	if (bHasHit || !HasAuthority())
 	{
+		UE_LOG(LogLasso, Verbose, TEXT("  IGNORED: bHasHit=%d, HasAuthority=%d"), bHasHit, HasAuthority());
 		return;
 	}
 
-	// Get current direction of travel
-	FVector Velocity = ProjectileMovement ? ProjectileMovement->Velocity : FVector::ZeroVector;
-	if (Velocity.IsNearlyZero())
+	if (IsValidTarget(OtherActor))
 	{
-		return;
+		UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::OnOverlapBegin - VALID TARGET OVERLAP: %s"), *GetNameSafe(OtherActor));
+		OnTargetHit(OtherActor);
 	}
-
-	FVector CurrentDirection = Velocity.GetSafeNormal();
-	FVector CurrentLocation = GetActorLocation();
-
-	// Sphere cast for targets in aim assist cone
-	TArray<FHitResult> OutHits;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-	QueryParams.AddIgnoredActor(GetOwner());
-
-	// Look for targets in a sphere ahead
-	FVector SphereCenter = CurrentLocation + CurrentDirection * (AimAssistMaxDistance * 0.5f);
-	float SphereRadius = FMath::Tan(FMath::DegreesToRadians(AimAssistAngle)) * AimAssistMaxDistance;
-
-	bool bHit = GetWorld()->SweepMultiByChannel(
-		OutHits,
-		CurrentLocation,
-		CurrentLocation + CurrentDirection * AimAssistMaxDistance,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(SphereRadius),
-		QueryParams);
-
-	if (bHit && OutHits.Num() > 0)
+	else
 	{
-		// Find closest valid target
-		AActor *ClosestTarget = nullptr;
-		float ClosestDist = FLT_MAX;
-
-		for (const FHitResult &Hit : OutHits)
-		{
-			AActor *HitActor = Hit.GetActor();
-			if (!HitActor || !HitActor->IsA<APawn>())
-			{
-				continue;
-			}
-
-			// Check angle from current trajectory
-			FVector ToTarget = (HitActor->GetActorLocation() - CurrentLocation).GetSafeNormal();
-			float Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(CurrentDirection, ToTarget)));
-
-			if (Angle <= AimAssistAngle)
-			{
-				float Dist = FVector::Dist(CurrentLocation, HitActor->GetActorLocation());
-				if (Dist < ClosestDist)
-				{
-					ClosestDist = Dist;
-					ClosestTarget = HitActor;
-				}
-			}
-		}
-
-		if (ClosestTarget && ClosestTarget != AimAssistTarget.Get())
-		{
-			AimAssistTarget = ClosestTarget;
-
-			// Gently adjust trajectory toward target
-			FVector ToTarget = (ClosestTarget->GetActorLocation() - CurrentLocation).GetSafeNormal();
-			FVector NewVelocity = FMath::Lerp(CurrentDirection, ToTarget, 0.1f).GetSafeNormal() * Velocity.Size();
-
-			if (ProjectileMovement)
-			{
-				ProjectileMovement->Velocity = NewVelocity;
-			}
-
-			UE_LOG(LogGASDebug, Log, TEXT("LassoProjectile::UpdateAimAssist - Assisting toward %s"), *ClosestTarget->GetName());
-		}
+		UE_LOG(LogLasso, Verbose, TEXT("  Target %s not valid (no LassoableComponent)"), *GetNameSafe(OtherActor));
 	}
 }
 
-void ALassoProjectile::OnCollision(UPrimitiveComponent *HitComponent, AActor *OtherActor, UPrimitiveComponent *OtherComp,
-								   FVector NormalImpulse, const FHitResult &Hit)
+void ALassoProjectile::OnTargetHit(AActor *Target)
 {
-	// Only process on server
-	if (!HasAuthority())
+	UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::OnTargetHit - Processing hit on %s at %s, FlightTime=%.2fs"),
+		   *GetNameSafe(Target), *GetActorLocation().ToString(), FlightTime);
+
+	bHasHit = true;
+	ProjectileMovement->StopMovementImmediately();
+
+	if (LassoWeapon)
 	{
-		return;
+		LassoWeapon->OnProjectileHitTarget(Target);
 	}
-
-	// Don't hit owner
-	if (OtherActor == GetOwner())
+	else
 	{
-		return;
+		UE_LOG(LogLasso, Error, TEXT("LassoProjectile::OnTargetHit - No LassoWeapon reference!"));
 	}
+}
 
-	// Don't process while retracting
-	if (bIsRetracting)
-	{
-		return;
-	}
+void ALassoProjectile::OnTargetMissed()
+{
+	UE_LOG(LogLasso, Log, TEXT("LassoProjectile::OnTargetMissed - Projectile missed at %s, FlightTime=%.2fs"),
+		   *GetActorLocation().ToString(), FlightTime);
 
-	// Hit environment - start retracting
-	UE_LOG(LogGASDebug, Warning, TEXT("LassoProjectile::OnCollision - Hit environment %s"), *GetNameSafe(OtherActor));
+	bHasHit = true;
+	ProjectileMovement->StopMovementImmediately();
 
-	// Notify weapon of miss
 	if (LassoWeapon)
 	{
 		LassoWeapon->OnProjectileMissed();
 	}
-
-	StartRetract();
-}
-
-void ALassoProjectile::OnOverlapBegin(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor, UPrimitiveComponent *OtherComp,
-									  int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult)
-{
-	// Only process on server
-	if (!HasAuthority())
+	else
 	{
-		return;
+		UE_LOG(LogLasso, Error, TEXT("LassoProjectile::OnTargetMissed - No LassoWeapon reference!"));
 	}
-
-	// Don't hit owner
-	if (OtherActor == GetOwner())
-	{
-		return;
-	}
-
-	// Don't process while retracting or already caught
-	if (bIsRetracting || bHasCaughtTarget)
-	{
-		return;
-	}
-
-	// Only catch pawns
-	if (!OtherActor->IsA<APawn>())
-	{
-		return;
-	}
-
-	// Mark as caught to prevent further overlaps
-	bHasCaughtTarget = true;
-
-	// Stop movement
-	if (ProjectileMovement)
-	{
-		ProjectileMovement->StopMovementImmediately();
-		ProjectileMovement->Deactivate();
-	}
-
-	// Disable further collision/overlap events
-	if (CollisionSphere)
-	{
-		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
-
-	// Notify weapon of hit
-	if (LassoWeapon)
-	{
-		LassoWeapon->OnProjectileHitTarget(OtherActor);
-	}
-
-	UE_LOG(LogGASDebug, Warning, TEXT("LassoProjectile::OnOverlapBegin - Caught %s"), *OtherActor->GetName());
 }
 
 void ALassoProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ALassoProjectile, bIsRetracting);
 }

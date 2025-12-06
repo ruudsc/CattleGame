@@ -2,12 +2,17 @@
 
 
 #include "CattleAnimal.h"
+#include "CattleGame/Weapons/Lasso/LassoableComponent.h"
 
 // Sets default values
 ACattleAnimal::ACattleAnimal()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	// Create lassoable component for lasso target support
+	LassoableComponent = CreateDefaultSubobject<ULassoableComponent>(TEXT("LassoableComponent"));
+	LassoableComponent->AttachSocketName = FName("pelvis"); // Default socket for cattle
 
 }
 
