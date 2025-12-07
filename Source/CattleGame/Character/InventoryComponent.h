@@ -48,6 +48,21 @@ public:
 
 	// ===== WEAPON SLOT MANAGEMENT =====
 
+	/** Default inventory (design-time only).
+	 *  Class per fixed slot. Index mapping: 0=Revolver, 1=Lasso, 2=Dynamite, 3=Trumpet, 4-5=Pickup slots.
+	 *  Use EditDefaultsOnly so designers set this on the Blueprint class (not per-instance).
+	 *  Ensure the array has at least (int32)EWeaponSlot::MaxSlots entries in your Blueprint class defaults.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Inventory|Defaults")
+	TArray<TSubclassOf<AWeaponBase>> DefaultInventory;
+
+	/** Get the default weapon class for a given slot from the DefaultInventory array. */
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Defaults")
+	TSubclassOf<AWeaponBase> GetDefaultWeaponClassForSlot(int32 SlotIndex) const
+	{
+		return DefaultInventory.IsValidIndex(SlotIndex) ? DefaultInventory[SlotIndex] : nullptr;
+	}
+
 	/**
 	 * Equip a weapon from a specific slot.
 	 * Returns false if slot is empty or weapon is already equipped.
@@ -153,21 +168,6 @@ public:
 	 */
 	const TArray<AWeaponBase *> &GetWeaponSlots() const { return WeaponSlots; }
 
-	// ===== INITIALIZATION =====
-
-	/**
-	 * Spawn and equip default weapons for this character (Revolver, Lasso, Dynamite).
-	 * Called from character BeginPlay. Must be called on server/authority.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	void InitializeDefaultWeapons();
-
-	/**
-	 * Set the default weapon classes for fixed slots (called from character).
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	void SetDefaultWeaponClasses(TSubclassOf<AWeaponBase> RevolverClass, TSubclassOf<AWeaponBase> LassoClass, TSubclassOf<AWeaponBase> DynamiteClass, TSubclassOf<AWeaponBase> TrumpetClass);
-
 	// ===== EVENTS =====
 
 	/** Called when a weapon is equipped */
@@ -203,20 +203,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Inventory|Owner")
 	ACattleCharacter *OwnerCharacter = nullptr;
 
-	// ===== DEFAULT WEAPON CLASSES =====
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Defaults")
-	TSubclassOf<AWeaponBase> DefaultRevolverClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Defaults")
-	TSubclassOf<AWeaponBase> DefaultLassoClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Defaults")
-	TSubclassOf<AWeaponBase> DefaultDynamiteClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Defaults")
-	TSubclassOf<AWeaponBase> DefaultTrumpetClass;
-
 	// ===== NETWORK =====
 
 	/**
@@ -236,6 +222,11 @@ protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
 
 private:
+	/**
+	 * Initialize default weapons from DefaultInventory array on BeginPlay (server only).
+	 */
+	void InitializeDefaultWeapons();
+
 	/**
 	 * Internal function to spawn a weapon and attach it to character.
 	 */
@@ -264,6 +255,12 @@ private:
 	int32 FindPreviousWeaponSlot() const;
 
 	// ===== WEAPON ABILITY MANAGEMENT =====
+
+	/**
+	 * Trigger the GA_WeaponEquip ability for equipping or unequipping a weapon.
+	 * Handles cosmetic attachment, mesh visibility, and effects.
+	 */
+	void TriggerWeaponEquipAbility(AWeaponBase *Weapon, bool bIsEquipping);
 
 	/**
 	 * Grant abilities from a weapon to the owner character's ASC.

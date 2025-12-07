@@ -94,16 +94,6 @@ void ACattleCharacter::BeginPlay()
 		AbilitySystemComponent->InitializeAbilitySystem(this, this);
 	}
 
-	// Initialize inventory with default weapon classes (server only)
-	if (InventoryComponent && HasAuthority())
-	{
-		InventoryComponent->SetDefaultWeaponClasses(
-			DefaultRevolverClass,
-			DefaultLassoClass,
-			DefaultDynamiteClass,
-			DefaultTrumpetClass);
-	}
-
 	// Grant abilities from Data Asset (server only)
 	InitAbilitySystem();
 

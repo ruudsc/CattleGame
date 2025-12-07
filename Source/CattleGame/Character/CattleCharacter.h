@@ -140,15 +140,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|Mesh Visibility", meta = (EditCondition = "bOverrideMeshVisibility"))
 	EMeshVisibilityMode CurrentVisibilityMode = EMeshVisibilityMode::Normal;
 
-	// Weapon Sockets
-	/** Socket name for first-person weapon attachment */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons")
-	FName FirstPersonWeaponSocket = FName("HandGrip_R");
-
-	/** Socket name for third-person weapon attachment */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons")
-	FName ThirdPersonWeaponSocket = FName("HandGrip_R");
-
 protected:
 	// Input Properties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -156,25 +147,8 @@ protected:
 
 	// ===== INVENTORY COMPONENT =====
 	/** Manages weapon inventory and equipment */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Inventory")
 	TObjectPtr<UInventoryComponent> InventoryComponent;
-
-	// ===== DEFAULT WEAPON CLASSES =====
-	/** Default weapon class for slot 0 (Revolver) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Default Weapons")
-	TSubclassOf<AWeaponBase> DefaultRevolverClass;
-
-	/** Default weapon class for slot 1 (Lasso) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Default Weapons")
-	TSubclassOf<AWeaponBase> DefaultLassoClass;
-
-	/** Default weapon class for slot 2 (Dynamite) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Default Weapons")
-	TSubclassOf<AWeaponBase> DefaultDynamiteClass;
-
-	/** Default weapon class for slot 3 (Trumpet) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Default Weapons")
-	TSubclassOf<AWeaponBase> DefaultTrumpetClass;
 
 protected:
 	virtual void BeginPlay() override;
@@ -237,18 +211,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool HasGameplayTag(FGameplayTag InTag) const;
-
-	/**
-	 * Get the weapon socket name for first-person attachments.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapons")
-	FName GetFirstPersonWeaponSocket() const { return FirstPersonWeaponSocket; }
-
-	/**
-	 * Get the weapon socket name for third-person attachments.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapons")
-	FName GetThirdPersonWeaponSocket() const { return ThirdPersonWeaponSocket; }
 
 	/**
 	 * Get the character abilities array.

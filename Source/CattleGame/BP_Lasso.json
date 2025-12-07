@@ -1,0 +1,145 @@
+{
+	"metadata":
+	{
+		"blueprintName": "BP_Lasso",
+		"blueprintPath": "/Game/Characters/Player/Abilities/Lasso/BP_Lasso.BP_Lasso",
+		"blueprintType": "Normal",
+		"parentClass": "/Script/CattleGame.Lasso",
+		"generatedClass": "BP_Lasso_C",
+		"engineVersion": "++UE5+Release-5.6-CL-44394996",
+		"serializerVersion": "2.0.0",
+		"exportTimestamp": "2025.12.06-22.56.45"
+	},
+	"variables": [
+		{
+			"varName": "Fired Projectile",
+			"varGuid": "A686CB31461CA36899157288E4AE5A82",
+			"varType": "object:/Script/CattleGame.LassoProjectile",
+			"category": "Default",
+			"defaultValue": "",
+			"bIsExposed": false,
+			"bIsReadOnly": false,
+			"replicationCondition": "",
+			"metadata":
+			{
+			}
+		},
+		{
+			"varName": "socket",
+			"varGuid": "1E3591FE488AD4B0075AFBAFEE41954D",
+			"varType": "name",
+			"category": "Default",
+			"defaultValue": "",
+			"bIsExposed": false,
+			"bIsReadOnly": false,
+			"replicationCondition": "",
+			"metadata":
+			{
+			}
+		}
+	],
+	"eventGraphs": [
+		{
+			"graphName": "EventGraph",
+			"graphType": "EventGraph",
+			"graphGuid": "1298D6EE4C79BBD296B0459AB041F92F",
+			"nodes": []
+		}
+	],
+	"functions": [
+		{
+			"functionName": "UserConstructionScript",
+			"functionGuid": "A8B97DD24D8B0453133A28B73A55CAF3",
+			"parameters": [],
+			"returnValues": [],
+			"graph":
+			{
+				"graphName": "UserConstructionScript",
+				"graphType": "Function",
+				"graphGuid": "A8B97DD24D8B0453133A28B73A55CAF3",
+				"nodes": [
+					{
+						"nodeGuid": "77408D924416632611E91E837CA0232F",
+						"nodeClass": "K2Node_FunctionEntry",
+						"nodeTitle": "Construction Script",
+						"nodeComment": "",
+						"positionX": 0,
+						"positionY": 0,
+						"pins": [
+							{
+								"pinId": "E192232F419A9EF0C16371B00E2F5857",
+								"pinName": "then",
+								"direction": "output",
+								"pinType": "exec",
+								"defaultValue": "",
+								"linkedTo": []
+							}
+						],
+						"functionReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"eventReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"variableReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"delegateReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"targetClass": "",
+						"spawnClass": "",
+						"enumType": "",
+						"structType": "",
+						"macroReference": "",
+						"timelineName": "",
+						"literalValue": "",
+						"customEventName": "",
+						"inputActionName": "",
+						"inputKey": "",
+						"bIsPure": false,
+						"bIsLatent": false,
+						"bSelfContext": false,
+						"nodeSpecificData":
+						{
+							"FunctionName": "UserConstructionScript",
+							"IsNodePure": "false"
+						}
+					}
+				]
+			},
+			"bIsStatic": false,
+			"bIsPure": false,
+			"bIsConst": false
+		}
+	],
+	"macros": [],
+	"components": [],
+	"implementedInterfaces": [],
+	"hardDependencies": [],
+	"softDependencies": []
+}

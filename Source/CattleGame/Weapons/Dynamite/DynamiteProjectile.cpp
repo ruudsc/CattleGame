@@ -4,6 +4,10 @@
 #include "Particles/ParticleSystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "GameplayCueManager.h"
+#include "CattleGame/AbilitySystem/CattleGameplayTags.h"
 #include "CattleGame/CattleGame.h"
 
 ADynamiteProjectile::ADynamiteProjectile()
@@ -128,7 +132,39 @@ void ADynamiteProjectile::Explode()
 		UE_LOG(LogGASDebug, Warning, TEXT("DynamiteProjectile::Explode - Exploding as eaten dynamite"));
 	}
 
-	// Spawn explosion particle effect
+	// Trigger GameplayCue for explosion VFX/Audio via owner's ASC (for proper replication)
+	AActor *OwnerActor = GetOwner();
+	UAbilitySystemComponent *ASC = OwnerActor ? UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwnerActor) : nullptr;
+
+	if (ASC)
+	{
+		FGameplayCueParameters CueParams;
+		CueParams.Location = GetActorLocation();
+		CueParams.Normal = FVector::UpVector;
+
+		ASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_Dynamite_Explode, CueParams);
+		UE_LOG(LogGASDebug, Warning, TEXT("DynamiteProjectile::Explode - GameplayCue executed via ASC at %s"), *GetActorLocation().ToString());
+	}
+	else
+	{
+		// Fallback: Try GameplayCueManager directly (won't replicate)
+		if (UGameplayCueManager *CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
+		{
+			FGameplayCueParameters CueParams;
+			CueParams.Location = GetActorLocation();
+			CueParams.Normal = FVector::UpVector;
+			CueParams.Instigator = OwnerActor;
+
+			CueManager->HandleGameplayCue(this, CattleGameplayTags::GameplayCue_Dynamite_Explode, EGameplayCueEvent::Executed, CueParams);
+			UE_LOG(LogGASDebug, Warning, TEXT("DynamiteProjectile::Explode - GameplayCue triggered via CueManager (no ASC) at %s"), *GetActorLocation().ToString());
+		}
+		else
+		{
+			UE_LOG(LogGASDebug, Error, TEXT("DynamiteProjectile::Explode - No ASC or GameplayCueManager found!"));
+		}
+	}
+
+	// Legacy: Spawn explosion particle effect (fallback if no GameplayCue Blueprint exists)
 	if (ExplosionParticles)
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionParticles, GetActorLocation());

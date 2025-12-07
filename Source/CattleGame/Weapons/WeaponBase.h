@@ -62,6 +62,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Config")
 	FString WeaponName = "Unnamed Weapon";
 
+	/** Whether this weapon is currently equipped (controls visibility via OnRep) */
+	UPROPERTY(ReplicatedUsing = OnRep_IsEquipped, BlueprintReadOnly, Category = "Weapon|State")
+	bool bIsEquipped = false;
+
+	/** Called when bIsEquipped replicates - updates visibility */
+	UFUNCTION()
+	void OnRep_IsEquipped();
+
 	/** Owner character reference (replicated for clients that need owner context). */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Weapon|Owner")
 	ACattleCharacter *OwnerCharacter = nullptr;
@@ -73,6 +81,23 @@ public:
 	/** Offset transform when attached to the third-person mesh */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Weapon|Attachment")
 	FTransform ThirdPersonAttachmentOffset = FTransform::Identity;
+
+	/** Socket name on character skeleton for weapon attachment */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Weapon|Attachment")
+	FName AttachmentSocketName = FName(TEXT("HandGrip_R"));
+
+	/**
+	 * Get the socket name for attaching this weapon to character.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Attachment")
+	FName GetAttachmentSocketName() const { return AttachmentSocketName; }
+
+	/**
+	 * Attach weapon to character's hand socket on active mesh.
+	 * Uses AttachmentSocketName property.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Attachment")
+	void AttachToCharacterHand();
 
 	// ===== ABILITY SYSTEM =====
 
@@ -95,38 +120,19 @@ public:
 	 */
 	TArray<FGameplayAbilitySpecHandle> GrantedAbilityHandles;
 
-	// ===== CORE FUNCTIONALITY =====
-	// These are simple event triggers - all logic is handled in child classes or blueprints
-
-	/**
-	 * Called when weapon is equipped. Triggers OnWeaponEquipped event for blueprints.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void EquipWeapon();
-
-	/**
-	 * Called when weapon is unequipped. Triggers OnWeaponUnequipped event for blueprints.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void UnequipWeapon();
-
-	/**
-	 * Called when weapon fires. Triggers OnWeaponFired event for blueprints.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void Fire();
-
-	/**
-	 * Called when weapon starts reloading. Triggers OnReloadStarted event for blueprints.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void Reload();
+	// ===== HELPERS =====
 
 	/**
 	 * Set the owner character for this weapon.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	void SetOwnerCharacter(ACattleCharacter *Character);
+
+	/**
+	 * Get the owner character for this weapon (cached or resolved from Owner).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	ACattleCharacter *GetOwnerCharacter() const;
 
 	/**
 	 * Helper for blueprints: choose the attachment offset that matches the supplied mesh.
@@ -147,40 +153,11 @@ public:
 	virtual bool IsNetRelevantFor(const AActor *RealViewer, const AActor *Viewer, const FVector &SrcLocation) const override;
 
 protected:
+	/** Optional skeletal mesh component for this weapon. Set by derived classes or blueprints. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Weapon|Mesh")
+	TObjectPtr<USkeletalMeshComponent> WeaponMesh = nullptr;
+
 	virtual void BeginPlay() override;
 
 	virtual void Tick(float DeltaTime) override;
-
-	// ===== BLUEPRINT EVENTS =====
-	// These events are called from C++ and can be listened to in Blueprint Event Graph
-
-	/**
-	 * Called when the weapon is equipped. Blueprints should handle mesh visibility and animations.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|Events", meta = (DisplayName = "On Weapon Equipped"))
-	void OnWeaponEquipped(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
-	/**
-	 * Called when the weapon is unequipped. Blueprints should handle mesh hiding and cleanup.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|Events", meta = (DisplayName = "On Weapon Unequipped"))
-	void OnWeaponUnequipped(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
-	/**
-	 * Called when the weapon fires. Blueprints should handle animations, VFX, and SFX.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|Events", meta = (DisplayName = "On Weapon Fired"))
-	void OnWeaponFired(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
-	/**
-	 * Called when reload starts. Blueprints should handle reload animations and VFX.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|Events", meta = (DisplayName = "On Reload Started"))
-	void OnReloadStarted(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
-
-	/**
-	 * Called when reload completes. Blueprints can handle reload completion VFX/SFX.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|Events", meta = (DisplayName = "On Reload Completed"))
-	void OnReloadCompleted(ACattleCharacter *Character, USkeletalMeshComponent *Mesh);
 };

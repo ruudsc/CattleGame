@@ -24,30 +24,10 @@ class CATTLEGAME_API ADynamite : public AProjectileWeaponBase
 public:
 	ADynamite();
 
-	// ===== SOCKET CONSTANTS =====
-
-	/** Socket name for dynamite attachment on character skeleton */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dynamite|Attachment")
-	FName DynamiteHandSocketName = FName(TEXT("HandGrip_R"));
-
 	// ===== WEAPON INTERFACE =====
-
-	/** Override equip to attach to character hand */
-	virtual void EquipWeapon() override;
-
-	/** Override unequip to detach from character */
-	virtual void UnequipWeapon() override;
-
-	// ===== WEAPON INTERFACE =====
-
-	/** Override Fire to spawn dynamite projectile */
-	virtual void Fire() override;
 
 	/** Check if dynamite can be thrown (has ammo, not already thrown) */
 	virtual bool CanFire() const;
-
-	/** Refill dynamite sticks (for ammo pickups) */
-	virtual void Reload() override;
 
 	/** Check if dynamite can be reloaded */
 	virtual bool CanReload() const;
@@ -109,11 +89,4 @@ protected:
 
 	// Authoritative server processing for projectile spawn/launch
 	virtual void OnServerFire(const FVector &SpawnLocation, const FVector &LaunchDirection) override;
-
-private:
-	/** Spawn dynamite projectile at weapon muzzle */
-	void SpawnDynamiteProjectile();
-
-	/** Attach dynamite mesh to character hand socket */
-	void AttachToCharacterHand();
 };

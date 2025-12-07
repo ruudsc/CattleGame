@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include "CattleAnimal.generated.h"
 
+class ULassoableComponent;
+
 UCLASS()
 class CATTLEGAME_API ACattleAnimal : public ACharacter
 {
@@ -25,5 +27,11 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	// ===== LASSO SUPPORT =====
+
+	/** Lassoable component for lasso target support */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Lasso")
+	TObjectPtr<ULassoableComponent> LassoableComponent;
 
 };

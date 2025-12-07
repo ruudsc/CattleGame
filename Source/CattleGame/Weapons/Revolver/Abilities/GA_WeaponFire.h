@@ -28,26 +28,7 @@ public:
 	 */
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo, const FGameplayTagContainer *SourceTags = nullptr, const FGameplayTagContainer *TargetTags = nullptr, OUT FGameplayTagContainer *OptionalRelevantTags = nullptr) const override;
 
-	/**
-	 * Cost of firing the weapon
-	 * Can be configured in blueprints (e.g., ammo cost)
-	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Fire Ability|Cost")
-	float FireCost = 1.0f;
-
-	/**
-	 * Cooldown between shots in seconds
-	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Fire Ability|Cooldown")
-	float FireCooldown = 0.5f;
-
 protected:
-	/**
-	 * Apply fire cost (ammo, stamina, etc.)
-	 */
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Fire Ability")
-	void ApplyFireCost();
-
 	/**
 	 * Called when fire ability starts
 	 */

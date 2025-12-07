@@ -16,7 +16,24 @@ AWeaponBase::AWeaponBase()
 void AWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
-	// All initialization is handled in child classes
+
+	// Initially hide weapons that aren't equipped
+	SetActorHiddenInGame(!bIsEquipped);
+}
+
+void AWeaponBase::OnRep_IsEquipped()
+{
+	// When bIsEquipped replicates to clients, update visibility
+	SetActorHiddenInGame(!bIsEquipped);
+
+	UE_LOG(LogGASDebug, Warning, TEXT("%s::OnRep_IsEquipped - bIsEquipped=%s, Hidden=%s"),
+		   *GetName(), bIsEquipped ? TEXT("TRUE") : TEXT("FALSE"), IsHidden() ? TEXT("TRUE") : TEXT("FALSE"));
+
+	// If equipped and not yet attached, attach to character
+	if (bIsEquipped && !GetAttachParentActor())
+	{
+		AttachToCharacterHand();
+	}
 }
 
 void AWeaponBase::Tick(float DeltaTime)
@@ -24,43 +41,9 @@ void AWeaponBase::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-void AWeaponBase::EquipWeapon()
+ACattleCharacter *AWeaponBase::GetOwnerCharacter() const
 {
-	SetActorHiddenInGame(false);
-
-	// Notify blueprints to handle all equip logic
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	USkeletalMeshComponent *ActiveMesh = CurrentOwner ? CurrentOwner->GetActiveCharacterMesh() : nullptr;
-
-	UE_LOG(LogGASDebug, Warning, TEXT("WeaponBase::EquipWeapon() called on %s"), *GetName());
-
-	OnWeaponEquipped(CurrentOwner, ActiveMesh);
-}
-
-void AWeaponBase::UnequipWeapon()
-{
-	SetActorHiddenInGame(true);
-
-	// Notify blueprints to handle all unequip logic
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	USkeletalMeshComponent *ActiveMesh = CurrentOwner ? CurrentOwner->GetActiveCharacterMesh() : nullptr;
-	OnWeaponUnequipped(CurrentOwner, ActiveMesh);
-}
-
-void AWeaponBase::Fire()
-{
-	// Notify blueprints to handle all firing logic
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	USkeletalMeshComponent *ActiveMesh = CurrentOwner ? CurrentOwner->GetActiveCharacterMesh() : nullptr;
-	OnWeaponFired(CurrentOwner, ActiveMesh);
-}
-
-void AWeaponBase::Reload()
-{
-	// Notify blueprints to handle all reload logic
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	USkeletalMeshComponent *ActiveMesh = CurrentOwner ? CurrentOwner->GetActiveCharacterMesh() : nullptr;
-	OnReloadStarted(CurrentOwner, ActiveMesh);
+	return OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
 }
 
 FTransform AWeaponBase::GetAttachmentOffsetForMesh(const USkeletalMeshComponent *Mesh) const
@@ -70,7 +53,7 @@ FTransform AWeaponBase::GetAttachmentOffsetForMesh(const USkeletalMeshComponent 
 		return FirstPersonAttachmentOffset;
 	}
 
-	const ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
+	const ACattleCharacter *CurrentOwner = GetOwnerCharacter();
 	if (CurrentOwner)
 	{
 		if (Mesh == CurrentOwner->GetFirstPersonMesh())
@@ -99,6 +82,7 @@ void AWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifet
 
 	// Replicate owner character reference
 	DOREPLIFETIME(AWeaponBase, OwnerCharacter);
+	DOREPLIFETIME(AWeaponBase, bIsEquipped);
 }
 
 bool AWeaponBase::IsNetRelevantFor(const AActor *RealViewer, const AActor *Viewer, const FVector &SrcLocation) const
@@ -115,15 +99,29 @@ bool AWeaponBase::IsNetRelevantFor(const AActor *RealViewer, const AActor *Viewe
 
 USkeletalMeshComponent *AWeaponBase::GetWeaponMesh() const
 {
-	// Get the character owner
-	const ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
+	return WeaponMesh;
+}
+
+void AWeaponBase::AttachToCharacterHand()
+{
+	ACattleCharacter *CurrentOwner = GetOwnerCharacter();
 	if (!CurrentOwner)
 	{
-		return nullptr;
+		UE_LOG(LogGASDebug, Warning, TEXT("%s::AttachToCharacterHand - No owner character"), *GetName());
+		return;
 	}
 
-	// Return the active mesh (first-person for owner, third-person for others)
-	return CurrentOwner->GetActiveCharacterMesh();
+	USkeletalMeshComponent *TargetMesh = CurrentOwner->GetActiveCharacterMesh();
+	if (!TargetMesh)
+	{
+		UE_LOG(LogGASDebug, Warning, TEXT("%s::AttachToCharacterHand - No active character mesh"), *GetName());
+		return;
+	}
+
+	FAttachmentTransformRules AttachRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, true);
+	AttachToComponent(TargetMesh, AttachRules, AttachmentSocketName);
+
+	UE_LOG(LogGASDebug, Log, TEXT("%s::AttachToCharacterHand - Attached to socket %s on mesh %s"), *GetName(), *AttachmentSocketName.ToString(), *TargetMesh->GetName());
 }
 
 // Intentionally no base CanFire/CanReload implementation; derived weapons decide their own gating

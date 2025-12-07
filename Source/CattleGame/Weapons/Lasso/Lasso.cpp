@@ -1,43 +1,62 @@
 #include "Lasso.h"
 #include "LassoProjectile.h"
-#include "AbilitySystemComponent.h"
-#include "CattleGame/Character/CattleCharacter.h"
-#include "GameFramework/CharacterMovementComponent.h"
+#include "LassoableComponent.h"
+#include "LassoLoopActor.h"
+#include "CableComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SplineComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "CattleGame/Character/CattleCharacter.h"
 #include "Net/UnrealNetwork.h"
 #include "CattleGame/CattleGame.h"
+#include "Engine/Engine.h"
+#include "DrawDebugHelpers.h"
+
+// Frame-rate throttling for verbose logs
+static int32 LassoTickLogCounter = 0;
+static const int32 LassoTickLogInterval = 30; // Log every 30 frames (~0.5s at 60fps)
 
 ALasso::ALasso()
 {
-	WeaponSlotID = 1; // Lasso is in slot 1
+	WeaponSlotID = 1; // Lasso slot
 	WeaponName = FString(TEXT("Lasso"));
 	bReplicates = true;
 	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.TickInterval = 0.0f; // Tick every frame for smooth physics
 
-	// Create scene root component
+	// Create root
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 
-	// Create lasso mesh component and attach to root
-	LassoMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LassoMesh"));
-	LassoMeshComponent->SetupAttachment(RootComponent);
-	LassoMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// Create lasso coil mesh in hand (visible during throw)
+	HandCoilMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HandCoilMesh"));
+	HandCoilMesh->SetupAttachment(RootComponent);
+	HandCoilMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	// Create cable component for rope visual (purely cosmetic, no physics)
+	RopeCable = CreateDefaultSubobject<UCableComponent>(TEXT("RopeCable"));
+	RopeCable->SetupAttachment(RootComponent);
+	RopeCable->bAttachStart = true;
+	RopeCable->bAttachEnd = false;
+	RopeCable->CableLength = 100.0f;
+	RopeCable->NumSegments = 10;
+	RopeCable->CableWidth = 3.0f;
+	RopeCable->bEnableStiffness = false;
+	RopeCable->SetEnableGravity(false); // No gravity sag simulation
+	RopeCable->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	RopeCable->SetVisibility(false); // Hidden until tethered
 }
 
 void ALasso::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Handle cooldown (runs on all instances)
 	TickCooldown(DeltaTime);
 
-	// State-specific tick logic (server authoritative)
 	if (HasAuthority())
 	{
 		switch (CurrentState)
 		{
-		case ELassoState::InFlight:
-			TickInFlight(DeltaTime);
+		case ELassoState::Throwing:
+			TickThrowing(DeltaTime);
 			break;
 		case ELassoState::Tethered:
 			TickTethered(DeltaTime);
@@ -49,276 +68,210 @@ void ALasso::Tick(float DeltaTime)
 			break;
 		}
 	}
+
+	// Update cable visual on all instances
+	UpdateCableVisual();
 }
 
 // ===== WEAPON INTERFACE =====
 
-void ALasso::EquipWeapon()
-{
-	// Call parent to trigger OnWeaponEquipped event
-	Super::EquipWeapon();
-
-	// Attach lasso mesh to character hand socket
-	AttachToCharacterHand();
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::EquipWeapon - Attached to character hand"));
-}
-
-void ALasso::UnequipWeapon()
-{
-	// Detach from character
-	// DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-
-	// Call parent to trigger OnWeaponUnequipped event
-	Super::UnequipWeapon();
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::UnequipWeapon - Detached from character"));
-}
-
-void ALasso::Fire()
-{
-	if (!CanFire())
-	{
-		return;
-	}
-
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner)
-	{
-		return;
-	}
-
-	// Compute spawn and launch using camera orientation
-	const FVector SpawnLocation = CurrentOwner->GetActorLocation() + CurrentOwner->GetActorForwardVector() * 100.0f;
-	const FVector LaunchDirection = CurrentOwner->GetControlRotation().Vector();
-
-	// Send authoritative fire request to server
-	ServerFire(SpawnLocation, LaunchDirection);
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::Fire - Requesting throw, State=%d"), (int32)CurrentState);
-}
-
 bool ALasso::CanFire() const
 {
-	// Can only fire if lasso is idle and not in cooldown
-	if (CurrentState != ELassoState::Idle)
+	bool bCanFire = CurrentState == ELassoState::Idle && CooldownRemaining <= 0.0f;
+	if (!bCanFire)
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::CanFire - FALSE: State is %d (not Idle)"), (int32)CurrentState);
-		return false;
+		const TCHAR *StateNames[] = {TEXT("Idle"), TEXT("Throwing"), TEXT("Tethered"), TEXT("Retracting")};
+		UE_LOG(LogLasso, Log, TEXT("Lasso::CanFire - BLOCKED: State=%s (need Idle), Cooldown=%.2f"),
+			   StateNames[(int32)CurrentState], CooldownRemaining);
 	}
+	return bCanFire;
+}
 
-	if (CooldownRemaining > 0.0f)
+void ALasso::StartPulling()
+{
+	if (CurrentState == ELassoState::Tethered && !bIsPulling)
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::CanFire - FALSE: Cooldown remaining %.2f"), CooldownRemaining);
-		return false;
+		bIsPulling = true;
+		UE_LOG(LogLasso, Warning, TEXT("Lasso::StartPulling - Started pulling target %s, ConstraintLength=%.1f"),
+			   *GetNameSafe(TetheredTarget), ConstraintLength);
 	}
+	else
+	{
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::StartPulling - IGNORED: State=%d, bIsPulling=%d"),
+			   (int32)CurrentState, bIsPulling);
+	}
+}
 
-	return true;
+void ALasso::StopPulling()
+{
+	if (bIsPulling)
+	{
+		bIsPulling = false;
+		UE_LOG(LogLasso, Warning, TEXT("Lasso::StopPulling - Stopped pulling, final ConstraintLength=%.1f"),
+			   ConstraintLength);
+	}
 }
 
 void ALasso::ReleaseTether()
 {
 	if (CurrentState != ELassoState::Tethered)
 	{
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::ReleaseTether - IGNORED: Not tethered (State=%d)"),
+			   (int32)CurrentState);
 		return;
 	}
 
 	if (!HasAuthority())
 	{
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::ReleaseTether - Client calling ServerReleaseTether"));
 		ServerReleaseTether();
 		return;
 	}
 
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::ReleaseTether - Releasing tethered target"));
+	UE_LOG(LogLasso, Warning, TEXT("Lasso::ReleaseTether - Releasing target %s"), *GetNameSafe(TetheredTarget));
 
-	// Clear tethered target
+	// Notify target before clearing
+	if (TetheredTarget)
+	{
+		if (ULassoableComponent *Lassoable = TetheredTarget->FindComponentByClass<ULassoableComponent>())
+		{
+			Lassoable->OnReleased();
+		}
+	}
+
+	// Destroy loop mesh
+	DestroyLoopMesh();
+
 	TetheredTarget = nullptr;
 	bIsPulling = false;
 
-	// Notify blueprint
-	OnLassoReleased();
+	OnTargetReleased();
 
-	// Start retracting
-	StartRetract();
+	SetState(ELassoState::Retracting);
 }
 
-void ALasso::StartRetract()
+void ALasso::ForceReset()
 {
-	if (CurrentState == ELassoState::Idle || CurrentState == ELassoState::Retracting)
-	{
-		return;
-	}
+	UE_LOG(LogLasso, Warning, TEXT("Lasso::ForceReset - Hard reset from State=%d, Target=%s"),
+		   (int32)CurrentState, *GetNameSafe(TetheredTarget));
 
-	if (!HasAuthority())
-	{
-		ServerStartRetract();
-		return;
-	}
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::StartRetract - Beginning retract"));
-
-	// Clear any tethered target
+	DestroyProjectile();
+	DestroyLoopMesh();
 	TetheredTarget = nullptr;
 	bIsPulling = false;
+	CooldownRemaining = 0.0f;
+	RetractTimer = 0.0f;
 
-	// Tell projectile to start retracting
-	if (LassoProjectile)
-	{
-		LassoProjectile->StartRetract();
-	}
+	RopeCable->SetVisibility(false);
+	HandCoilMesh->SetVisibility(true);
 
-	// Transition to retracting state
-	SetState(ELassoState::Retracting);
-
-	// Notify blueprint
-	OnLassoRetractStarted();
+	SetState(ELassoState::Idle);
 }
 
 // ===== PROJECTILE CALLBACKS =====
 
 void ALasso::OnProjectileHitTarget(AActor *Target)
 {
-	if (!HasAuthority() || CurrentState != ELassoState::InFlight)
+	if (!HasAuthority() || CurrentState != ELassoState::Throwing)
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::OnProjectileHitTarget - Ignored (Auth=%d, State=%d)"), HasAuthority(), (int32)CurrentState);
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::OnProjectileHitTarget - IGNORED: HasAuthority=%d, State=%d"),
+			   HasAuthority(), (int32)CurrentState);
 		return;
 	}
 
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::OnProjectileHitTarget - Caught %s"), *GetNameSafe(Target));
+	UE_LOG(LogLasso, Warning, TEXT("Lasso::OnProjectileHitTarget - CAPTURED target %s at location %s"),
+		   *GetNameSafe(Target), *Target->GetActorLocation().ToString());
 
-	// Store tethered target
 	TetheredTarget = Target;
 
-	// Calculate resting rope length (distance at catch time)
+	// Set constraint length to current distance
 	if (OwnerCharacter && Target)
 	{
-		RestingRopeLength = FVector::Dist(OwnerCharacter->GetActorLocation(), Target->GetActorLocation());
-		CurrentRopeLength = RestingRopeLength;
+		ConstraintLength = FVector::Dist(OwnerCharacter->GetActorLocation(), Target->GetActorLocation());
+		ConstraintLength = FMath::Min(ConstraintLength, MaxConstraintLength);
 	}
 
-	// Transition to tethered state
-	SetState(ELassoState::Tethered);
+	// Spawn loop mesh on target
+	SpawnLoopMeshOnTarget(Target);
 
-	// Notify blueprint
-	OnLassoCaughtTarget(Target);
+	// Show cable
+	RopeCable->SetVisibility(true);
+
+	// Notify target's lassoable component
+	if (ULassoableComponent *Lassoable = Target->FindComponentByClass<ULassoableComponent>())
+	{
+		Lassoable->OnCaptured(OwnerCharacter);
+	}
+
+	OnTargetCaptured(Target);
+
+	// Destroy the projectile now that we're tethered (visuals handled by rope/loop)
+	DestroyProjectile();
+
+	SetState(ELassoState::Tethered);
 }
 
 void ALasso::OnProjectileMissed()
 {
-	if (!HasAuthority() || CurrentState != ELassoState::InFlight)
+	if (!HasAuthority() || CurrentState != ELassoState::Throwing)
 	{
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::OnProjectileMissed - IGNORED: HasAuthority=%d, State=%d"),
+			   HasAuthority(), (int32)CurrentState);
 		return;
 	}
 
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnProjectileMissed - Starting retract"));
+	UE_LOG(LogLasso, Log, TEXT("Lasso::OnProjectileMissed - Projectile missed, entering retract"));
 
-	// Start retracting
-	StartRetract();
+	SetState(ELassoState::Retracting);
 }
 
-void ALasso::OnRetractComplete()
+// ===== BLUEPRINT EVENTS =====
+
+void ALasso::OnLassoThrown_Implementation()
 {
-	if (!HasAuthority() || CurrentState != ELassoState::Retracting)
-	{
-		return;
-	}
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::OnRetractComplete - Retract finished, starting cooldown"));
-
-	// Notify Blueprint - projectile cycle is complete (can clean up VFX, hide projectile mesh, etc.)
-	OnProjectileDestroyed();
-
-	// Start cooldown
-	CooldownRemaining = ThrowCooldown;
-
-	// Transition to idle
-	SetState(ELassoState::Idle);
-
-	// Notify blueprint - retract is complete
-	OnLassoRetractComplete();
-
-	// Notify blueprint - weapon should be re-attached to hand socket
-	OnLassoReattached();
+	UE_LOG(LogLasso, Log, TEXT("Lasso::OnLassoThrown - Projectile launched"));
 }
 
-// ===== PHYSICS HELPERS =====
-
-float ALasso::GetActorMass(AActor *Actor)
+void ALasso::OnTargetCaptured_Implementation(AActor *Target)
 {
-	if (!Actor)
-	{
-		return 100.0f; // Default mass
-	}
-
-	// Try to get mass from CharacterMovementComponent
-	if (ACharacter *Character = Cast<ACharacter>(Actor))
-	{
-		if (UCharacterMovementComponent *MovementComp = Character->GetCharacterMovement())
-		{
-			return MovementComp->Mass;
-		}
-	}
-
-	// Try to get mass from physics body
-	if (UPrimitiveComponent *RootPrim = Cast<UPrimitiveComponent>(Actor->GetRootComponent()))
-	{
-		if (RootPrim->IsSimulatingPhysics())
-		{
-			return RootPrim->GetMass();
-		}
-	}
-
-	return 100.0f; // Default mass
+	UE_LOG(LogLasso, Warning, TEXT("Lasso::OnTargetCaptured - Target=%s, ConstraintLength=%.1f"),
+		   *GetNameSafe(Target), ConstraintLength);
 }
 
-void ALasso::UpdateCharacterAbilityTag(AActor *Character, const FGameplayTag &Tag, bool bAdd)
+void ALasso::OnTargetReleased_Implementation()
 {
-	if (!Character)
-	{
-		return;
-	}
-
-	IAbilitySystemInterface *ASI = Cast<IAbilitySystemInterface>(Character);
-	if (!ASI)
-	{
-		return;
-	}
-
-	UAbilitySystemComponent *ASC = ASI->GetAbilitySystemComponent();
-	if (!ASC)
-	{
-		return;
-	}
-
-	if (bAdd)
-	{
-		ASC->AddLooseGameplayTag(Tag);
-	}
-	else
-	{
-		ASC->RemoveLooseGameplayTag(Tag);
-	}
+	UE_LOG(LogLasso, Log, TEXT("Lasso::OnTargetReleased - Tether released"));
 }
 
-void ALasso::SetPulling(bool bPulling)
+void ALasso::OnRetractComplete_Implementation()
 {
-	if (bIsPulling == bPulling)
+	// Show hand coil mesh again, hide cable
+	HandCoilMesh->SetVisibility(true);
+	RopeCable->SetVisibility(false);
+	UE_LOG(LogLasso, Log, TEXT("Lasso::OnRetractComplete - Ready for next throw"));
+}
+
+// ===== SERVER RPCS =====
+
+void ALasso::ServerFire_Implementation(const FVector_NetQuantize &SpawnLocation, const FVector_NetQuantizeNormal &LaunchDirection)
+{
+	if (!CanFire())
 	{
+		UE_LOG(LogLasso, Warning, TEXT("Lasso::ServerFire - REJECTED: CanFire=false"));
 		return;
 	}
 
-	bIsPulling = bPulling;
+	UE_LOG(LogLasso, Warning, TEXT("Lasso::ServerFire - Spawning projectile at %s, direction %s"),
+		   *FVector(SpawnLocation).ToString(), *FVector(LaunchDirection).ToString());
 
-	if (bIsPulling)
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::SetPulling - Pull started"));
-		OnPullStarted();
-	}
-	else
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::SetPulling - Pull stopped"));
-		OnPullStopped();
-	}
+	SpawnProjectile(SpawnLocation, LaunchDirection);
+	SetState(ELassoState::Throwing);
+	OnLassoThrown();
+}
+
+void ALasso::ServerReleaseTether_Implementation()
+{
+	ReleaseTether();
 }
 
 // ===== NETWORK =====
@@ -332,12 +285,31 @@ void ALasso::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimePr
 
 void ALasso::OnRep_CurrentState()
 {
-	// Update gameplay tags on clients when state replicates
-	// Note: This is a simplified version - full tag update happens on server
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnRep_CurrentState - State changed to %d"), (int32)CurrentState);
+	const TCHAR *StateNames[] = {TEXT("Idle"), TEXT("Throwing"), TEXT("Tethered"), TEXT("Retracting")};
+	UE_LOG(LogLasso, Log, TEXT("Lasso::OnRep_CurrentState - Replicated state: %s (%d)"),
+		   StateNames[(int32)CurrentState], (int32)CurrentState);
+
+	// Update visuals on clients
+	switch (CurrentState)
+	{
+	case ELassoState::Idle:
+		HandCoilMesh->SetVisibility(true);
+		RopeCable->SetVisibility(false);
+		break;
+	case ELassoState::Throwing:
+		// HandCoilMesh stays visible
+		// Rope is visible and connects to projectile
+		RopeCable->SetVisibility(true);
+		break;
+	case ELassoState::Tethered:
+		RopeCable->SetVisibility(true);
+		break;
+	case ELassoState::Retracting:
+		break;
+	}
 }
 
-// ===== INTERNAL STATE MANAGEMENT =====
+// ===== INTERNAL =====
 
 void ALasso::SetState(ELassoState NewState)
 {
@@ -349,153 +321,65 @@ void ALasso::SetState(ELassoState NewState)
 	ELassoState OldState = CurrentState;
 	CurrentState = NewState;
 
-	// Update gameplay tags
-	UpdateStateTags(OldState, NewState);
+	const TCHAR *StateNames[] = {TEXT("Idle"), TEXT("Throwing"), TEXT("Tethered"), TEXT("Retracting")};
+	UE_LOG(LogLasso, Warning, TEXT("Lasso::SetState - Transition: %s -> %s"),
+		   StateNames[(int32)OldState], StateNames[(int32)NewState]);
 
-	// Update weapon visibility based on state
-	UpdateWeaponVisibility(OldState, NewState);
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::SetState - %d -> %d"), (int32)OldState, (int32)NewState);
-
-	// Notify Blueprint of state change
-	OnLassoStateChanged(OldState, NewState);
-}
-
-void ALasso::UpdateWeaponVisibility(ELassoState OldState, ELassoState NewState)
-{
-	// Hide weapon mesh when lasso is thrown (entering InFlight from Idle)
-	if (OldState == ELassoState::Idle && NewState == ELassoState::InFlight)
+	// State enter logic
+	if (NewState == ELassoState::Retracting)
 	{
-		SetWeaponMeshVisible(false);
-	}
-	// Show weapon mesh when lasso returns to idle (retract complete)
-	else if (NewState == ELassoState::Idle)
-	{
-		SetWeaponMeshVisible(true);
-	}
-
-	// Handle rope wrap visuals
-	if (NewState == ELassoState::Tethered && TetheredTarget)
-	{
-		// Show rope wrap on tethered target
-		OnShowRopeWrapVisual(TetheredTarget);
-	}
-	else if (OldState == ELassoState::Tethered && TetheredTarget)
-	{
-		// Hide rope wrap when leaving tethered state
-		OnHideRopeWrapVisual(TetheredTarget);
+		RetractTimer = 0.0f;
+		TetheredTarget = nullptr;
+		bIsPulling = false;
 	}
 }
 
-void ALasso::UpdateStateTags(ELassoState OldState, ELassoState NewState)
+void ALasso::TickThrowing(float DeltaTime)
 {
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner)
-	{
-		return;
-	}
-
-	// Remove old state tags
-	switch (OldState)
-	{
-	case ELassoState::InFlight:
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Throwing, false);
-		break;
-	case ELassoState::Tethered:
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Pulling, false);
-		break;
-	case ELassoState::Retracting:
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Retracting, false);
-		break;
-	default:
-		break;
-	}
-
-	// Add new state tags
-	switch (NewState)
-	{
-	case ELassoState::Idle:
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Active, false);
-		break;
-	case ELassoState::InFlight:
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Active, true);
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Throwing, true);
-		break;
-	case ELassoState::Tethered:
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Active, true);
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Pulling, true);
-		break;
-	case ELassoState::Retracting:
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Active, true);
-		UpdateCharacterAbilityTag(CurrentOwner, CattleGameplayTags::State_Lasso_Retracting, true);
-		break;
-	}
-}
-
-// ===== TICK HANDLERS =====
-
-void ALasso::TickInFlight(float DeltaTime)
-{
-	// Projectile handles its own flight logic and will call OnProjectileHitTarget or OnProjectileMissed
+	// Projectile handles everything, just wait for callbacks
 }
 
 void ALasso::TickTethered(float DeltaTime)
 {
 	if (!TetheredTarget || !OwnerCharacter)
 	{
-		// Target was destroyed or became invalid
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::TickTethered - Lost target! TetheredTarget=%s, OwnerCharacter=%s"),
-			   TetheredTarget ? TEXT("Valid") : TEXT("NULL"),
-			   OwnerCharacter ? TEXT("Valid") : TEXT("NULL"));
-
-		// Notify Blueprint about lost target
-		if (TetheredTarget)
-		{
-			OnTargetLost(TetheredTarget);
-		}
-
-		StartRetract();
+		UE_LOG(LogLasso, Warning, TEXT("Lasso::TickTethered - Lost target or owner, releasing (Target=%s, Owner=%s)"),
+			   *GetNameSafe(TetheredTarget), *GetNameSafe(OwnerCharacter));
+		SetState(ELassoState::Retracting);
 		return;
 	}
 
-	// Update current rope length
-	CurrentRopeLength = FVector::Dist(OwnerCharacter->GetActorLocation(), TetheredTarget->GetActorLocation());
-
-	// Apply elastic tether force if pulling
+	// Apply constraint if pulling
 	if (bIsPulling)
 	{
-		ApplyElasticTetherForce(DeltaTime);
+		ApplyConstraintForce(DeltaTime);
+
+		// Slowly shorten constraint (reel in)
+		float OldConstraint = ConstraintLength;
+		ConstraintLength = FMath::Max(100.0f, ConstraintLength - PullReelSpeed * DeltaTime);
+
+		// Throttled verbose logging
+		LassoTickLogCounter++;
+		if (LassoTickLogCounter >= LassoTickLogInterval)
+		{
+			LassoTickLogCounter = 0;
+			UE_LOG(LogLasso, Verbose, TEXT("Lasso::TickTethered - Reeling: Constraint %.1f -> %.1f, ReelSpeed=%.1f"),
+				   OldConstraint, ConstraintLength, PullReelSpeed);
+		}
 	}
 }
 
 void ALasso::TickRetracting(float DeltaTime)
 {
-	// Projectile handles retraction and will call OnRetractComplete when done
-	// Check if projectile is close enough to complete retraction
-	if (LassoProjectile && OwnerCharacter)
-	{
-		float DistanceToOwner = FVector::Dist(LassoProjectile->GetActorLocation(), OwnerCharacter->GetActorLocation());
+	RetractTimer += DeltaTime;
 
-		// Log progress every second or so
-		static float LogTimer = 0.0f;
-		LogTimer += DeltaTime;
-		if (LogTimer > 1.0f)
-		{
-			UE_LOG(LogGASDebug, Warning, TEXT("Lasso::TickRetracting - Distance to owner: %.1f, Projectile retracting: %s"),
-				   DistanceToOwner, LassoProjectile->IsRetracting() ? TEXT("YES") : TEXT("NO"));
-			LogTimer = 0.0f;
-		}
-
-		if (DistanceToOwner < 100.0f)
-		{
-			UE_LOG(LogGASDebug, Warning, TEXT("Lasso::TickRetracting - Projectile reached owner, completing retract"));
-			OnRetractComplete();
-		}
-	}
-	else
+	if (RetractTimer >= RetractDuration)
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::TickRetracting - Missing projectile or owner! Forcing complete."));
+		DestroyProjectile();
+		CooldownRemaining = ThrowCooldown;
+		UE_LOG(LogLasso, Log, TEXT("Lasso::TickRetracting - Retract complete, starting cooldown: %.2f seconds"), ThrowCooldown);
 		OnRetractComplete();
+		SetState(ELassoState::Idle);
 	}
 }
 
@@ -503,263 +387,290 @@ void ALasso::TickCooldown(float DeltaTime)
 {
 	if (CooldownRemaining > 0.0f)
 	{
+		float OldCooldown = CooldownRemaining;
 		CooldownRemaining -= DeltaTime;
 		if (CooldownRemaining <= 0.0f)
 		{
 			CooldownRemaining = 0.0f;
-			OnLassoReady();
+			UE_LOG(LogLasso, Log, TEXT("Lasso::TickCooldown - Cooldown finished, ready to throw!"));
 		}
 	}
 }
 
-// ===== PHYSICS =====
-
-void ALasso::ApplyElasticTetherForce(float DeltaTime)
+void ALasso::ApplyConstraintForce(float DeltaTime)
 {
 	if (!TetheredTarget || !OwnerCharacter)
 	{
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::ApplyConstraintForce - SKIPPED: Missing target or owner"));
 		return;
 	}
 
-	// Calculate stretch (difference from resting length)
-	float Stretch = CurrentRopeLength - RestingRopeLength;
-
-	// Only apply force if rope is stretched beyond resting length
-	if (Stretch <= 0.0f)
-	{
-		// Notify Blueprint with zero tension
-		OnRopeTensionChanged(0.0f, 0.0f);
-		return;
-	}
-
-	// Calculate spring force: F = -k * x - c * v (spring + damping)
 	FVector OwnerLocation = OwnerCharacter->GetActorLocation();
 	FVector TargetLocation = TetheredTarget->GetActorLocation();
-	FVector RopeDirection = (TargetLocation - OwnerLocation).GetSafeNormal();
+	float Distance = FVector::Dist(OwnerLocation, TargetLocation);
 
-	float SpringForce = RopeElasticity * Stretch;
-
-	// Notify Blueprint of rope tension (for VFX like cable thickness, particles, etc.)
-	OnRopeTensionChanged(Stretch, SpringForce);
-
-	// Get masses for force distribution
-	float OwnerMass = GetActorMass(OwnerCharacter);
-	float TargetMass = GetActorMass(TetheredTarget);
-	float TotalMass = OwnerMass + TargetMass;
-
-	// Force ratio: heavier entity moves less
-	float OwnerForceRatio = TargetMass / TotalMass; // Owner gets pulled more if target is heavier
-	float TargetForceRatio = OwnerMass / TotalMass; // Target gets pulled more if owner is heavier
-
-	// Apply force to owner (toward target)
-	if (UCharacterMovementComponent *OwnerMovement = OwnerCharacter->GetCharacterMovement())
+	// Only apply force if stretched beyond constraint length
+	if (Distance <= ConstraintLength)
 	{
-		FVector ForceOnOwner = RopeDirection * SpringForce * OwnerForceRatio;
-		OwnerMovement->AddForce(ForceOnOwner);
+		// Throttled verbose log for slack rope
+		if (LassoTickLogCounter == 0)
+		{
+			UE_LOG(LogLasso, Verbose, TEXT("Lasso::ApplyConstraintForce - SLACK: Distance=%.1f <= Constraint=%.1f (no force)"),
+				   Distance, ConstraintLength);
+		}
+		return;
 	}
 
-	// Apply force to target (toward owner)
-	if (ACharacter *TargetCharacter = Cast<ACharacter>(TetheredTarget))
+	FVector Direction = (TargetLocation - OwnerLocation).GetSafeNormal();
+	float Overshoot = Distance - ConstraintLength;
+
+	// Get masses for force distribution
+	float OwnerMass = 100.0f;
+	float TargetMass = 100.0f;
+
+	UCharacterMovementComponent *OwnerMovement = OwnerCharacter->GetCharacterMovement();
+	UCharacterMovementComponent *TargetMovement = nullptr;
+
+	if (OwnerMovement)
 	{
-		if (UCharacterMovementComponent *TargetMovement = TargetCharacter->GetCharacterMovement())
+		OwnerMass = OwnerMovement->Mass;
+	}
+
+	ACharacter *TargetChar = Cast<ACharacter>(TetheredTarget);
+	if (TargetChar)
+	{
+		TargetMovement = TargetChar->GetCharacterMovement();
+		if (TargetMovement)
 		{
-			FVector ForceOnTarget = -RopeDirection * SpringForce * TargetForceRatio;
-			TargetMovement->AddForce(ForceOnTarget);
+			TargetMass = TargetMovement->Mass;
+		}
+	}
+
+	float TotalMass = OwnerMass + TargetMass;
+	float OwnerRatio = TargetMass / TotalMass;
+	float TargetRatio = OwnerMass / TotalMass;
+
+	// Force scales with overshoot for elastic feel, but cap it
+	float ForceMultiplier = FMath::Min(Overshoot / 100.0f, 3.0f); // Cap at 3x
+
+	// Calculate velocity change based on force (F = ma, so a = F/m, and dv = a*dt)
+	// For characters, we apply this as a velocity impulse each frame
+	float AccelerationMagnitude = (PullForce * ForceMultiplier) / 100.0f; // Normalize by base mass
+	FVector VelocityChange = Direction * AccelerationMagnitude * DeltaTime;
+
+	// Throttled detailed force logging
+	if (LassoTickLogCounter == 0)
+	{
+		UE_LOG(LogLasso, Log, TEXT("Lasso::ApplyConstraintForce - TAUT: Distance=%.1f, Constraint=%.1f, Overshoot=%.1f"),
+			   Distance, ConstraintLength, Overshoot);
+		UE_LOG(LogLasso, Log, TEXT("  Mass: Owner=%.1f, Target=%.1f, Ratios=(%.2f, %.2f), ForceMultiplier=%.2f"),
+			   OwnerMass, TargetMass, OwnerRatio, TargetRatio, ForceMultiplier);
+		UE_LOG(LogLasso, Log, TEXT("  VelocityChange magnitude=%.1f (per frame), Direction=%s"),
+			   VelocityChange.Size(), *Direction.ToString());
+	}
+
+	// Apply velocity to owner (toward target)
+	if (OwnerMovement)
+	{
+		FVector OwnerVelocityAdd = VelocityChange * OwnerRatio;
+		FVector CurrentVelocity = OwnerMovement->Velocity;
+		// Add velocity in the pull direction, preserving some existing velocity
+		FVector NewVelocity = CurrentVelocity + OwnerVelocityAdd;
+		OwnerMovement->Velocity = NewVelocity;
+
+		if (LassoTickLogCounter == 0)
+		{
+			UE_LOG(LogLasso, Log, TEXT("  Owner velocity: %s -> %s (added %s)"),
+				   *CurrentVelocity.ToString(), *NewVelocity.ToString(), *OwnerVelocityAdd.ToString());
+		}
+	}
+
+	// Apply velocity to target (toward owner) - use LaunchCharacter for AI-controlled characters
+	if (TargetChar && TargetMovement)
+	{
+		FVector TargetVelocityAdd = -VelocityChange * TargetRatio;
+
+		// For AI characters, use LaunchCharacter which bypasses AI movement overrides
+		// XYOverride=false means add to existing, ZOverride=false means add to existing
+		TargetChar->LaunchCharacter(TargetVelocityAdd, false, false);
+
+		if (LassoTickLogCounter == 0)
+		{
+			UE_LOG(LogLasso, Log, TEXT("  Target LaunchCharacter: %s (velocity add toward owner)"),
+				   *TargetVelocityAdd.ToString());
 		}
 	}
 }
 
-// ===== SERVER RPCS =====
-
-void ALasso::ServerFire_Implementation(const FVector_NetQuantize &SpawnLocation, const FVector_NetQuantizeNormal &LaunchDirection)
+void ALasso::UpdateCableVisual()
 {
-	if (!CanFire())
+	if (!RopeCable)
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::ServerFire - Cannot fire (state=%d, cooldown=%.2f)"),
-			   (int32)CurrentState, CooldownRemaining);
 		return;
 	}
 
-	if (!GetWorld() || !ProjectileClass || !OwnerCharacter)
+	if (CurrentState == ELassoState::Throwing && ActiveProjectile)
 	{
-		UE_LOG(LogGASDebug, Error, TEXT("Lasso::ServerFire - Missing world, projectile class, or owner"));
-		return;
-	}
+		// Cable start: hand/weapon position
+		RopeCable->SetWorldLocation(OwnerCharacter->GetActorLocation() + FVector(0, 0, 50));
 
-	const FRotator SpawnRotation = LaunchDirection.Rotation();
-
-	// Spawn or reuse projectile
-	if (!LassoProjectile)
-	{
-		LassoProjectile = GetWorld()->SpawnActor<ALassoProjectile>(
-			ProjectileClass,
-			SpawnLocation,
-			SpawnRotation);
-
-		if (!LassoProjectile)
+		// Cable end: connect to visual loop mesh on projectile
+		FVector EndPoint = ActiveProjectile->GetActorLocation();
+		if (UStaticMeshComponent *LoopMesh = ActiveProjectile->GetRopeLoopMesh())
 		{
-			UE_LOG(LogGASDebug, Error, TEXT("Lasso::ServerFire - Failed to spawn projectile"));
-			return;
+			EndPoint = LoopMesh->GetComponentLocation();
 		}
 
-		LassoProjectile->SetOwner(OwnerCharacter);
-		LassoProjectile->SetLassoWeapon(this);
+		RopeCable->EndLocation = RopeCable->GetComponentTransform().InverseTransformPosition(EndPoint);
+
+		// Set length to distance so it's taut/straight during throw
+		float Distance = FVector::Dist(OwnerCharacter->GetActorLocation(), EndPoint);
+		RopeCable->CableLength = Distance;
+	}
+	else if (CurrentState == ELassoState::Tethered && TetheredTarget && OwnerCharacter)
+	{
+		// Cable start: hand/weapon position
+		RopeCable->SetWorldLocation(OwnerCharacter->GetActorLocation() + FVector(0, 0, 50));
+
+		// Cable end: connect to loop mesh if available, otherwise target
+		FVector EndPoint = TetheredTarget->GetActorLocation();
+		if (SpawnedLoopMesh)
+		{
+			EndPoint = SpawnedLoopMesh->GetActorLocation();
+		}
+
+		RopeCable->EndLocation = RopeCable->GetComponentTransform().InverseTransformPosition(EndPoint);
+
+		// Adjust cable length based on distance
+		float Distance = FVector::Dist(OwnerCharacter->GetActorLocation(), EndPoint);
+		RopeCable->CableLength = Distance;
+	}
+}
+
+void ALasso::SpawnProjectile(const FVector &Location, const FVector &Direction)
+{
+	if (!ProjectileClass || !GetWorld())
+	{
+		UE_LOG(LogLasso, Error, TEXT("Lasso::SpawnProjectile - FAILED: ProjectileClass=%s, World=%s"),
+			   ProjectileClass ? TEXT("valid") : TEXT("null"), GetWorld() ? TEXT("valid") : TEXT("null"));
+		return;
+	}
+
+	UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnProjectile - Spawning at %s, direction %s"),
+		   *Location.ToString(), *Direction.ToString());
+
+	ActiveProjectile = GetWorld()->SpawnActor<ALassoProjectile>(
+		ProjectileClass,
+		Location,
+		Direction.Rotation());
+
+	if (ActiveProjectile)
+	{
+		ActiveProjectile->SetOwner(OwnerCharacter);
+		ActiveProjectile->SetLassoWeapon(this);
+		ActiveProjectile->Launch(Direction);
+
+		// Make cable visible immediately
+		RopeCable->SetVisibility(true);
+
+		UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnProjectile - SUCCESS: Projectile %s launched"),
+			   *GetNameSafe(ActiveProjectile));
 	}
 	else
 	{
-		// Reset projectile for reuse
-		LassoProjectile->SetActorLocation(SpawnLocation);
-		LassoProjectile->SetActorRotation(SpawnRotation);
-	}
-
-	// Configure and launch projectile
-	LassoProjectile->SetLassoProperties(ThrowSpeed, MaxRopeLength, GravityScale, AimAssistAngle, AimAssistMaxDistance, RetractSpeed);
-	LassoProjectile->Launch(LaunchDirection.GetSafeNormal(), ThrowSpeed);
-
-	// Transition to in-flight state
-	SetState(ELassoState::InFlight);
-
-	// Notify blueprint
-	OnLassoThrown();
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::ServerFire - Projectile launched, State=%d"), (int32)CurrentState);
-}
-
-void ALasso::ServerReleaseTether_Implementation()
-{
-	ReleaseTether();
-}
-
-void ALasso::ServerStartRetract_Implementation()
-{
-	StartRetract();
-}
-
-// ===== VISIBILITY =====
-
-void ALasso::SetWeaponMeshVisible(bool bVisible)
-{
-	if (LassoMeshComponent)
-	{
-		LassoMeshComponent->SetVisibility(bVisible, true);
+		UE_LOG(LogLasso, Error, TEXT("Lasso::SpawnProjectile - FAILED: SpawnActor returned null"));
 	}
 }
 
-// ===== ATTACHMENT =====
-
-void ALasso::AttachToCharacterHand()
+void ALasso::DestroyProjectile()
 {
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner)
+	if (ActiveProjectile)
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::AttachToCharacterHand - No owner character"));
+		ActiveProjectile->Destroy();
+		ActiveProjectile = nullptr;
+	}
+}
+
+void ALasso::SpawnLoopMeshOnTarget(AActor *Target)
+{
+	if (!Target || !LoopMeshClass || !GetWorld())
+	{
+		UE_LOG(LogLasso, Warning, TEXT("Lasso::SpawnLoopMeshOnTarget - FAILED: Target=%s, LoopMeshClass=%s, World=%s"),
+			   *GetNameSafe(Target), LoopMeshClass ? TEXT("valid") : TEXT("null"), GetWorld() ? TEXT("valid") : TEXT("null"));
 		return;
 	}
 
-	USkeletalMeshComponent *TargetMesh = CurrentOwner->GetActiveCharacterMesh();
-	if (!TargetMesh)
+	UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnLoopMeshOnTarget - Spawning loop on %s"), *GetNameSafe(Target));
+
+	// Get attachment transform from LassoableComponent if available
+	FTransform SpawnTransform = FTransform::Identity;
+
+	// Try procedural wrap first
+	if (ULassoableComponent *Lassoable = Target->FindComponentByClass<ULassoableComponent>())
 	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Lasso::AttachToCharacterHand - No active character mesh"));
-		return;
+		if (Lassoable->WrapLoopActorClass && Lassoable->WrapSpline)
+		{
+			// Spawn procedural loop
+			FTransform SplineTransform = Lassoable->WrapSpline->GetComponentTransform();
+			SpawnedLoopMesh = GetWorld()->SpawnActor<AActor>(Lassoable->WrapLoopActorClass, SplineTransform);
+
+			if (ALassoLoopActor *LoopActor = Cast<ALassoLoopActor>(SpawnedLoopMesh))
+			{
+				LoopActor->AttachToComponent(Lassoable->WrapSpline, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+				LoopActor->InitFromSpline(Lassoable->WrapSpline);
+				UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnLoopMeshOnTarget - Procedural loop spawned on %s"), *GetNameSafe(Target));
+				return;
+			}
+		}
+
+		// If no procedural setup, check for simple attachment transform
+		SpawnTransform = Lassoable->GetLoopAttachTransform();
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::SpawnLoopMeshOnTarget - Using LassoableComponent transform: %s"),
+			   *SpawnTransform.ToString());
+	}
+	else
+	{
+		// Fallback: spawn at target location
+		SpawnTransform.SetLocation(Target->GetActorLocation());
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::SpawnLoopMeshOnTarget - No LassoableComponent, using target location"));
 	}
 
-	FAttachmentTransformRules AttachRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, true);
-	AttachToComponent(TargetMesh, AttachRules, LassoHandSocketName);
+	// Spawn the simple loop mesh actor (Fallback)
+	if (LoopMeshClass)
+	{
+		SpawnedLoopMesh = GetWorld()->SpawnActor<AActor>(LoopMeshClass, SpawnTransform);
 
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::AttachToCharacterHand - Attached to socket %s on mesh %s"), *LassoHandSocketName.ToString(), *TargetMesh->GetName());
+		if (SpawnedLoopMesh)
+		{
+			// CRITICAL: Disable ALL collision on the loop mesh to prevent it from pushing the target
+			SpawnedLoopMesh->SetActorEnableCollision(false);
+
+			// Also disable collision on all primitive components as a safeguard
+			TArray<UPrimitiveComponent *> PrimitiveComponents;
+			SpawnedLoopMesh->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+			for (UPrimitiveComponent *PrimComp : PrimitiveComponents)
+			{
+				PrimComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				UE_LOG(LogLasso, Verbose, TEXT("  Disabled collision on component: %s"), *GetNameSafe(PrimComp));
+			}
+
+			// Attach to target so it follows
+			SpawnedLoopMesh->AttachToActor(Target, FAttachmentTransformRules::KeepWorldTransform);
+			UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnLoopMeshOnTarget - Simple loop spawned on %s (collision disabled)"), *GetNameSafe(Target));
+		}
+		else
+		{
+			UE_LOG(LogLasso, Error, TEXT("Lasso::SpawnLoopMeshOnTarget - FAILED to spawn loop mesh actor"));
+		}
+	}
 }
 
-// ===== BLUEPRINT NATIVE EVENT IMPLEMENTATIONS =====
-
-void ALasso::OnLassoThrown_Implementation()
+void ALasso::DestroyLoopMesh()
 {
-	// Default C++ implementation: hide the lasso mesh when thrown
-	// (visibility is already handled by UpdateWeaponVisibility, but log for debugging)
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoThrown_Implementation - Projectile launched"));
-}
-
-void ALasso::OnLassoCaughtTarget_Implementation(AActor *CaughtTarget)
-{
-	// Default C++ implementation: show rope wrap visual on target
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoCaughtTarget_Implementation - Caught %s"), *GetNameSafe(CaughtTarget));
-}
-
-void ALasso::OnLassoReleased_Implementation()
-{
-	// Default C++ implementation: cleanup when target is released
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoReleased_Implementation - Target released"));
-}
-
-void ALasso::OnLassoRetractStarted_Implementation()
-{
-	// Default C++ implementation: retract is starting
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoRetractStarted_Implementation - Retract started"));
-}
-
-void ALasso::OnLassoRetractComplete_Implementation()
-{
-	// Default C++ implementation: retract is complete
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoRetractComplete_Implementation - Retract complete"));
-}
-
-void ALasso::OnLassoReady_Implementation()
-{
-	// Default C++ implementation: lasso is ready to throw again
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoReady_Implementation - Ready to throw"));
-}
-
-void ALasso::OnShowRopeWrapVisual_Implementation(AActor *Target)
-{
-	// Default C++ implementation: placeholder for rope wrap visual
-	// Blueprints can override to spawn particle systems, decals, etc.
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnShowRopeWrapVisual_Implementation - Target: %s"), *GetNameSafe(Target));
-}
-
-void ALasso::OnHideRopeWrapVisual_Implementation(AActor *Target)
-{
-	// Default C++ implementation: placeholder for hiding rope wrap
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnHideRopeWrapVisual_Implementation - Target: %s"), *GetNameSafe(Target));
-}
-
-void ALasso::OnLassoStateChanged_Implementation(ELassoState OldState, ELassoState NewState)
-{
-	// Default C++ implementation: log state changes
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoStateChanged_Implementation - %d -> %d"), (int32)OldState, (int32)NewState);
-}
-
-void ALasso::OnPullStarted_Implementation()
-{
-	// Default C++ implementation: player started pulling
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnPullStarted_Implementation - Pull started"));
-}
-
-void ALasso::OnPullStopped_Implementation()
-{
-	// Default C++ implementation: player stopped pulling
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnPullStopped_Implementation - Pull stopped"));
-}
-
-void ALasso::OnRopeTensionChanged_Implementation(float Stretch, float Force)
-{
-	// Default C++ implementation: rope tension changed (for VFX updates)
-	// Only log occasionally to avoid spam
-}
-
-void ALasso::OnTargetLost_Implementation(AActor *LostTarget)
-{
-	// Default C++ implementation: target was lost (destroyed, disconnected)
-	UE_LOG(LogGASDebug, Warning, TEXT("Lasso::OnTargetLost_Implementation - Lost target: %s"), *GetNameSafe(LostTarget));
-}
-
-void ALasso::OnLassoReattached_Implementation()
-{
-	// Default C++ implementation: re-attach to character hand after retract
-	AttachToCharacterHand();
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnLassoReattached_Implementation - Reattached to character hand"));
-}
-
-void ALasso::OnProjectileDestroyed_Implementation()
-{
-	// Default C++ implementation: projectile cleanup
-	UE_LOG(LogGASDebug, Log, TEXT("Lasso::OnProjectileDestroyed_Implementation - Projectile cycle complete"));
+	if (SpawnedLoopMesh)
+	{
+		UE_LOG(LogLasso, Verbose, TEXT("Lasso::DestroyLoopMesh - Destroying %s"), *GetNameSafe(SpawnedLoopMesh));
+		SpawnedLoopMesh->Destroy();
+		SpawnedLoopMesh = nullptr;
+	}
 }

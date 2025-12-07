@@ -8,6 +8,7 @@
 #include "CattleGame/AbilitySystem/CattleGameplayTags.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayEffectTypes.h"
+#include "Camera/CameraComponent.h"
 #include "CattleGame/CattleGame.h"
 
 UGA_WeaponFire::UGA_WeaponFire()
@@ -70,12 +71,6 @@ bool UGA_WeaponFire::CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	return true;
 }
 
-void UGA_WeaponFire::ApplyFireCost_Implementation()
-{
-	// Default implementation: Do nothing
-	// Override in blueprints to apply ammo cost, stamina cost, etc.
-}
-
 void UGA_WeaponFire::FireWeapon()
 {
 	UE_LOG(LogGASDebug, Warning, TEXT("FireWeapon: Getting weapon"));
@@ -97,23 +92,44 @@ void UGA_WeaponFire::FireWeapon()
 	}
 
 	UE_LOG(LogGASDebug, Warning, TEXT("FireWeapon: Got character, adding firing tag"));
-	// Add firing state tag
+
+	// Get trace start/direction from character's camera
+	UCameraComponent *Camera = Character->GetFirstPersonCameraComponent();
+	if (!Camera)
+	{
+		UE_LOG(LogGASDebug, Error, TEXT("FireWeapon: No camera component found"));
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
+	FVector TraceStart = Camera->GetComponentLocation();
+	FVector TraceDir = Camera->GetForwardVector();
+
+	// Add firing state tag and trigger muzzle flash cue with location data
 	if (UAbilitySystemComponent *ASC = GetAbilitySystemComponentFromActorInfo())
 	{
 		ASC->AddLooseGameplayTag(CattleGameplayTags::State_Weapon_Firing);
+
+		// Set up cue parameters with muzzle location
+		FGameplayCueParameters MuzzleFlashParams;
+		MuzzleFlashParams.Location = TraceStart;
+		MuzzleFlashParams.Normal = TraceDir;
+		MuzzleFlashParams.SourceObject = Weapon;
+		MuzzleFlashParams.Instigator = Character;
+
+		ASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_Revolver_Fire, MuzzleFlashParams);
 	}
 
 	// Broadcast that fire is starting
 	UE_LOG(LogGASDebug, Warning, TEXT("FireWeapon: Broadcasting OnFireStarted"));
 	OnFireStarted(Weapon);
 
-	// Apply fire cost
-	ApplyFireCost();
-
-	// Call the weapon's fire method
-	UE_LOG(LogGASDebug, Warning, TEXT("FireWeapon: Calling Weapon->Fire()"));
-	Weapon->Fire();
-	UE_LOG(LogGASDebug, Warning, TEXT("FireWeapon: Weapon->Fire() returned"));
+	// Call the weapon's server fire to do the actual shot (damage + impact cue)
+	if (ARevolver *Revolver = Cast<ARevolver>(Weapon))
+	{
+		UE_LOG(LogGASDebug, Warning, TEXT("FireWeapon: Calling Revolver->RequestServerFireWithPrediction"));
+		Revolver->RequestServerFireWithPrediction(TraceStart, TraceDir);
+	}
 
 	// Remove firing state tag
 	if (UAbilitySystemComponent *ASC = GetAbilitySystemComponentFromActorInfo())

@@ -6,6 +6,9 @@
 #include "Components/StaticMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Net/UnrealNetwork.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "CattleGame/AbilitySystem/CattleGameplayTags.h"
 #include "CattleGame/CattleGame.h"
 
 ARevolver::ARevolver()
@@ -45,134 +48,6 @@ void ARevolver::BeginPlay()
 	// Initialize ammo
 	CurrentAmmo = MaxAmmo;
 	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::BeginPlay [SERVER] - %p Ammo initialized to %d/%d"), this, CurrentAmmo, MaxAmmo);
-}
-
-void ARevolver::EquipWeapon()
-{
-	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::EquipWeapon() - Addr: %p, HasAuthority: %s, OwnerCharacter: %p"),
-		   this, HasAuthority() ? TEXT("TRUE") : TEXT("FALSE"), OwnerCharacter);
-
-	// Call the base implementation which fires the event
-	Super::EquipWeapon();
-
-	// Attach to character hand socket
-	AttachToCharacterHand();
-
-	// Also explicitly call our C++ implementation to ensure bIsEquipped is set
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::EquipWeapon() - CurrentOwner resolved to: %p"), CurrentOwner);
-	USkeletalMeshComponent *ActiveMesh = CurrentOwner ? CurrentOwner->GetActiveCharacterMesh() : nullptr;
-	OnWeaponEquipped_Implementation(CurrentOwner, ActiveMesh);
-}
-
-void ARevolver::UnequipWeapon()
-{
-	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::UnequipWeapon() - Addr: %p"), this);
-
-	// Detach from character
-	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-
-	// Call unequip implementation
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	USkeletalMeshComponent *ActiveMesh = CurrentOwner ? CurrentOwner->GetActiveCharacterMesh() : nullptr;
-	OnWeaponUnequipped_Implementation(CurrentOwner, ActiveMesh);
-
-	// Call base to fire event
-	Super::UnequipWeapon();
-}
-
-void ARevolver::Fire()
-{
-	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::Fire() - Addr: %p, HasAuthority: %s"),
-		   this, HasAuthority() ? TEXT("TRUE") : TEXT("FALSE"));
-
-	// Trigger blueprint event for local cosmetics
-	Super::Fire();
-
-	// Client-predicted fire: compute trace start/dir and request server fire
-	if (!CanFire())
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Revolver::Fire() - CanFire() == false"));
-		return;
-	}
-
-	FVector TraceStart, TraceDir;
-	GetTraceStartAndDirection(TraceStart, TraceDir);
-	RequestServerFireWithPrediction(TraceStart, TraceDir);
-}
-
-void ARevolver::OnWeaponEquipped_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh)
-{
-	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::OnWeaponEquipped BEFORE - Addr: %p, HasAuthority: %s, Equipped: %s"),
-		   this, HasAuthority() ? TEXT("TRUE") : TEXT("FALSE"), bIsEquipped ? TEXT("TRUE") : TEXT("FALSE"));
-
-	bIsEquipped = true;
-
-	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::OnWeaponEquipped SET - Addr: %p, HasAuthority: %s, Equipped: %s"),
-		   this, HasAuthority() ? TEXT("TRUE") : TEXT("FALSE"), bIsEquipped ? TEXT("TRUE") : TEXT("FALSE"));
-	if (Character)
-	{
-		OwnerCharacter = Character;
-	}
-	(void)Mesh;
-	// Blueprints can listen to this event to handle mesh visibility and animations
-}
-
-void ARevolver::OnWeaponUnequipped_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh)
-{
-	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::OnWeaponUnequipped - Addr: %p, Setting Equipped = FALSE"), this);
-
-	bIsEquipped = false;
-	bIsReloading = false;
-	(void)Character;
-	(void)Mesh;
-
-	// Clear reload timer if active
-	if (GetWorld())
-	{
-		GetWorld()->GetTimerManager().ClearTimer(ReloadTimerHandle);
-	}
-
-	// Blueprints can listen to this event to handle mesh hiding and cleanup
-}
-
-void ARevolver::OnWeaponFired_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh)
-{
-	// Keep only minimal bookkeeping for cosmetic hooks; authority logic handled in OnServerFire
-	if (Character)
-	{
-		OwnerCharacter = Character;
-	}
-	(void)Mesh;
-	UE_LOG(LogGASDebug, Verbose, TEXT("Revolver::OnWeaponFired_Implementation - cosmetic only (server handles firing)"));
-}
-
-void ARevolver::OnReloadStarted_Implementation(ACattleCharacter *Character, USkeletalMeshComponent *Mesh)
-{
-	if (Character)
-	{
-		OwnerCharacter = Character;
-	}
-	(void)Mesh;
-	if (!CanReload())
-	{
-		return;
-	}
-
-	bIsReloading = true;
-
-	// Set timer for reload completion
-	if (GetWorld())
-	{
-		GetWorld()->GetTimerManager().SetTimer(
-			ReloadTimerHandle,
-			this,
-			&ARevolver::OnReloadComplete,
-			ReloadTime,
-			false);
-	}
-
-	// Blueprints can listen to this event to handle reload animations and VFX
 }
 
 bool ARevolver::CanFire() const
@@ -249,62 +124,7 @@ void ARevolver::OnReloadComplete()
 		ForceNetUpdate();
 	}
 
-	// Notify blueprints that reload is complete
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	USkeletalMeshComponent *ActiveMesh = CurrentOwner ? CurrentOwner->GetActiveCharacterMesh() : nullptr;
-	OnReloadCompleted(CurrentOwner, ActiveMesh);
-}
-
-void ARevolver::PerformLineTrace()
-{
-	if (!OwnerCharacter || !GetWorld())
-	{
-		return;
-	}
-
-	// Get trace start and direction from camera
-	FVector TraceStart;
-	FVector TraceDirection;
-	GetTraceStartAndDirection(TraceStart, TraceDirection);
-
-	// Apply spread to direction (random cone)
-	if (WeaponSpread > 0.0f)
-	{
-		FVector RandomSpread = FMath::VRand() * WeaponSpread;
-		TraceDirection = (TraceDirection + RandomSpread).GetSafeNormal();
-	}
-
-	FVector TraceEnd = TraceStart + (TraceDirection * WeaponRange);
-
-	// Perform line trace
-	FHitResult HitResult;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(OwnerCharacter);
-	QueryParams.AddIgnoredActor(this);
-
-	bool bHit = GetWorld()->LineTraceSingleByChannel(
-		HitResult,
-		TraceStart,
-		TraceEnd,
-		ECC_WorldDynamic,
-		QueryParams);
-
-	if (bHit && HitResult.GetActor())
-	{
-		// Apply damage
-		ApplyDamageToActor(HitResult.GetActor(), HitResult.ImpactPoint, TraceDirection);
-
-		// Play impact effect
-		PlayImpactEffect(HitResult.ImpactPoint, HitResult.ImpactNormal);
-
-		// Debug draw (remove in production)
-		// DrawDebugLine(GetWorld(), TraceStart, HitResult.ImpactPoint, FColor::Red, false, 1.0f);
-	}
-	else
-	{
-		// No hit - draw to max range
-		// DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Yellow, false, 1.0f);
-	}
+	// OnReloadCompleted blueprint event removed - use GA_WeaponReload for cosmetics
 }
 
 void ARevolver::ApplyDamageToActor(AActor *HitActor, const FVector &HitLocation, const FVector &ShotDirection)
@@ -321,75 +141,14 @@ void ARevolver::ApplyDamageToActor(AActor *HitActor, const FVector &HitLocation,
 		OwnerCharacter->GetController(),
 		this,
 		UDamageType::StaticClass());
-
-	// Could add hit reactions, knockback, etc. here in the future
-	if (bApplyHitReaction)
-	{
-		// This could trigger hit reactions on the target character
-		// For now, just apply damage
-	}
-}
-
-void ARevolver::PlayMuzzleFlash()
-{
-	// VFX should be handled in blueprints now
-	// Blueprints can listen to OnWeaponFired event
-}
-
-void ARevolver::PlayImpactEffect(const FVector &ImpactLocation, const FVector &ImpactNormal)
-{
-	if (!ImpactEffect)
-	{
-		return;
-	}
-
-	// Spawn impact effect at hit location, oriented along surface normal
-	FRotator ImpactRotation = ImpactNormal.Rotation();
-
-	UGameplayStatics::SpawnEmitterAtLocation(
-		GetWorld(),
-		ImpactEffect,
-		ImpactLocation,
-		ImpactRotation);
-}
-
-void ARevolver::PlayFireSound()
-{
-	if (!FireSound || !OwnerCharacter)
-	{
-		return;
-	}
-
-	UGameplayStatics::PlaySoundAtLocation(
-		GetWorld(),
-		FireSound,
-		OwnerCharacter->GetActorLocation());
-}
-
-void ARevolver::GetTraceStartAndDirection(FVector &OutStart, FVector &OutDirection) const
-{
-	if (!OwnerCharacter)
-	{
-		OutStart = FVector::ZeroVector;
-		OutDirection = FVector::ForwardVector;
-		return;
-	}
-
-	// Get camera location and forward direction
-	FVector CameraLocation = OwnerCharacter->GetFirstPersonCameraComponent()->GetComponentLocation();
-	FVector CameraDirection = OwnerCharacter->GetFirstPersonCameraComponent()->GetForwardVector();
-
-	OutStart = CameraLocation;
-	OutDirection = CameraDirection;
 }
 
 void ARevolver::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	// Replicate weapon state and ammo
+	// Replicate weapon state and ammo (bIsEquipped is in base class)
 	DOREPLIFETIME(ARevolver, CurrentAmmo);
-	DOREPLIFETIME(ARevolver, bIsEquipped);
 	DOREPLIFETIME(ARevolver, bIsReloading);
 }
 
@@ -442,7 +201,33 @@ void ARevolver::OnServerFire(const FVector &TraceStart, const FVector &TraceDir)
 	if (bHit && HitResult.GetActor())
 	{
 		ApplyDamageToActor(HitResult.GetActor(), HitResult.ImpactPoint, FireDir);
-		PlayImpactEffect(HitResult.ImpactPoint, HitResult.ImpactNormal);
+
+		// Trigger impact GameplayCue via owner's ASC (ensures proper replication)
+		if (UAbilitySystemComponent *ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwnerCharacter))
+		{
+			FGameplayCueParameters ImpactParams;
+			ImpactParams.Location = HitResult.ImpactPoint;
+			ImpactParams.Normal = HitResult.ImpactNormal;
+			ImpactParams.PhysicalMaterial = HitResult.PhysMaterial;
+			ImpactParams.SourceObject = this;
+
+			ASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_Revolver_Fire_Impact, ImpactParams);
+		}
+
+		// If hit actor is a pawn, trigger hit reaction on their ASC
+		if (APawn *HitPawn = Cast<APawn>(HitResult.GetActor()))
+		{
+			if (UAbilitySystemComponent *TargetASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(HitPawn))
+			{
+				FGameplayCueParameters HitReactionParams;
+				HitReactionParams.Location = HitResult.ImpactPoint;
+				HitReactionParams.Normal = HitResult.ImpactNormal;
+				HitReactionParams.Instigator = OwnerCharacter;
+				HitReactionParams.SourceObject = this;
+
+				TargetASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_HitReaction, HitReactionParams);
+			}
+		}
 	}
 }
 
@@ -454,26 +239,4 @@ void ARevolver::OnRep_CurrentAmmo()
 void ARevolver::OnRep_IsReloading()
 {
 	UE_LOG(LogGASDebug, Warning, TEXT("Revolver::OnRep_IsReloading [%s] - %p bIsReloading=%s"), HasAuthority() ? TEXT("SERVER") : TEXT("CLIENT"), this, bIsReloading ? TEXT("TRUE") : TEXT("FALSE"));
-}
-
-void ARevolver::AttachToCharacterHand()
-{
-	ACattleCharacter *CurrentOwner = OwnerCharacter ? OwnerCharacter : Cast<ACattleCharacter>(GetOwner());
-	if (!CurrentOwner)
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Revolver::AttachToCharacterHand - No owner character"));
-		return;
-	}
-
-	USkeletalMeshComponent *TargetMesh = CurrentOwner->GetActiveCharacterMesh();
-	if (!TargetMesh)
-	{
-		UE_LOG(LogGASDebug, Warning, TEXT("Revolver::AttachToCharacterHand - No active character mesh"));
-		return;
-	}
-
-	FAttachmentTransformRules AttachRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, true);
-	AttachToComponent(TargetMesh, AttachRules, RevolverHandSocketName);
-
-	UE_LOG(LogGASDebug, Log, TEXT("Revolver::AttachToCharacterHand - Attached to socket %s on mesh %s"), *RevolverHandSocketName.ToString(), *TargetMesh->GetName());
 }

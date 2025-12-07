@@ -2,6 +2,11 @@
 #include "CattleGame/Character/CattleCharacter.h"
 #include "Components/SkeletalMeshComponent.h"
 
+void AProjectileWeaponBase::FireWithPrediction(const FVector &SpawnLocation, const FVector &LaunchDirection)
+{
+    RequestServerFireWithPrediction(SpawnLocation, LaunchDirection);
+}
+
 void AProjectileWeaponBase::RequestServerFireWithPrediction(const FVector &SpawnLocation, const FVector &LaunchDirection)
 {
     // Cosmetic prediction: let client play effects immediately

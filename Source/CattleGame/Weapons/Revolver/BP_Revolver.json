@@ -1,0 +1,118 @@
+{
+	"metadata":
+	{
+		"blueprintName": "BP_Revolver",
+		"blueprintPath": "/Game/Characters/Player/Abilities/Revolver/BP_Revolver.BP_Revolver",
+		"blueprintType": "Normal",
+		"parentClass": "/Script/CattleGame.Revolver",
+		"generatedClass": "BP_Revolver_C",
+		"engineVersion": "++UE5+Release-5.6-CL-44394996",
+		"serializerVersion": "2.0.0",
+		"exportTimestamp": "2025.12.01-21.44.45"
+	},
+	"variables": [],
+	"eventGraphs": [
+		{
+			"graphName": "EventGraph",
+			"graphType": "EventGraph",
+			"graphGuid": "37410FD44A49067C7DD15C9AFCDC0439",
+			"nodes": []
+		}
+	],
+	"functions": [
+		{
+			"functionName": "UserConstructionScript",
+			"functionGuid": "CABF45D34157F71DDF3AEE8001DB5649",
+			"parameters": [],
+			"returnValues": [],
+			"graph":
+			{
+				"graphName": "UserConstructionScript",
+				"graphType": "Function",
+				"graphGuid": "CABF45D34157F71DDF3AEE8001DB5649",
+				"nodes": [
+					{
+						"nodeGuid": "104062734C3AA6E4710391A091F948DF",
+						"nodeClass": "K2Node_FunctionEntry",
+						"nodeTitle": "Construction Script",
+						"nodeComment": "",
+						"positionX": 0,
+						"positionY": 0,
+						"pins": [
+							{
+								"pinId": "154D6C9E4D7B0736D077CA9C5194E30E",
+								"pinName": "then",
+								"direction": "output",
+								"pinType": "exec",
+								"defaultValue": "",
+								"linkedTo": []
+							}
+						],
+						"functionReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"eventReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"variableReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"delegateReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"targetClass": "",
+						"spawnClass": "",
+						"enumType": "",
+						"structType": "",
+						"macroReference": "",
+						"timelineName": "",
+						"literalValue": "",
+						"customEventName": "",
+						"inputActionName": "",
+						"inputKey": "",
+						"bIsPure": false,
+						"bIsLatent": false,
+						"bSelfContext": false,
+						"nodeSpecificData":
+						{
+							"FunctionName": "UserConstructionScript",
+							"IsNodePure": "false"
+						}
+					}
+				]
+			},
+			"bIsStatic": false,
+			"bIsPure": false,
+			"bIsConst": false
+		}
+	],
+	"macros": [],
+	"components": [],
+	"implementedInterfaces": [],
+	"hardDependencies": [],
+	"softDependencies": []
+}

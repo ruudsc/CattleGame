@@ -4,6 +4,7 @@
 #include "GA_TrumpetScare.generated.h"
 
 class ATrumpet;
+class UAbilityTask_WaitInputRelease;
 
 /**
  * Trumpet Scare Ability - Play scary note to repel enemies.
@@ -11,7 +12,8 @@ class ATrumpet;
  * Input Binding: Secondary Fire (Mouse RMB)
  * Activation: Started (on key press)
  * Duration: While held, applies scare effect to nearby enemies
- * Cleanup: OnCompleted, stops trumpet
+ * Cleanup: OnInputReleased or OnCancelled, stops trumpet
+ * Blocking: Blocks Trumpet Lure while active
  */
 UCLASS(Blueprintable)
 class CATTLEGAME_API UGA_TrumpetScare : public UGA_Weapon
@@ -19,6 +21,8 @@ class CATTLEGAME_API UGA_TrumpetScare : public UGA_Weapon
 	GENERATED_BODY()
 
 public:
+	UGA_TrumpetScare();
+
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo,
 								 const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData *TriggerEventData) override;
 
@@ -35,4 +39,13 @@ protected:
 
 	/** Start playing scare */
 	void PlayScare();
+
+	/** Called when input is released */
+	UFUNCTION()
+	void OnInputReleased(float TimeHeld);
+
+private:
+	/** Task waiting for input release */
+	UPROPERTY()
+	UAbilityTask_WaitInputRelease *InputReleaseTask;
 };
