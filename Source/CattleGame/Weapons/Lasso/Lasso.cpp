@@ -8,8 +8,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "CattleGame/Character/CattleCharacter.h"
 #include "CattleGame/Animals/CattleAnimal.h"
-#include "CattleGame/Animals/Movement/CattleMovementComponent.h"
-#include "CattleGame/Animals/AI/CattleAIComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "CattleGame/CattleGame.h"
 #include "Engine/Engine.h"
@@ -489,40 +487,19 @@ void ALasso::ApplyConstraintForce(float DeltaTime)
 	}
 
 	// Apply velocity to target (toward owner)
-	// For cattle, use the external force system for smooth integration with AI
-	// For other characters, use LaunchCharacter as fallback
+	// Use LaunchCharacter which works well with AI movement
 	if (TargetChar && TargetMovement)
 	{
 		FVector TargetVelocityAdd = -VelocityChange * TargetRatio;
 
-		// Check if this is a cattle with our custom movement component
-		if (ACattleAnimal* CattleTarget = Cast<ACattleAnimal>(TargetChar))
-		{
-			if (UCattleMovementComponent* CattleMovement = CattleTarget->GetCattleMovement())
-			{
-				// Use external force system for smooth AI integration
-				// Convert velocity impulse to force (F = m * dv/dt)
-				FVector RopeForce = TargetVelocityAdd * TargetMass / DeltaTime;
-				CattleMovement->AddExternalForce(FName("RopeTension"), RopeForce, 0.0f, true, 100);
+		// LaunchCharacter bypasses AI movement overrides
+		// XYOverride=false means add to existing, ZOverride=false means add to existing
+		TargetChar->LaunchCharacter(TargetVelocityAdd, false, false);
 
-				if (LassoTickLogCounter == 0)
-				{
-					UE_LOG(LogLasso, Log, TEXT("  Target [Cattle] RopeForce: %s"),
-						   *RopeForce.ToString());
-				}
-			}
-		}
-		else
+		if (LassoTickLogCounter == 0)
 		{
-			// For non-cattle AI characters, use LaunchCharacter which bypasses AI movement overrides
-			// XYOverride=false means add to existing, ZOverride=false means add to existing
-			TargetChar->LaunchCharacter(TargetVelocityAdd, false, false);
-
-			if (LassoTickLogCounter == 0)
-			{
-				UE_LOG(LogLasso, Log, TEXT("  Target LaunchCharacter: %s (velocity add toward owner)"),
-					   *TargetVelocityAdd.ToString());
-			}
+			UE_LOG(LogLasso, Log, TEXT("  Target LaunchCharacter: %s (velocity add toward owner)"),
+				   *TargetVelocityAdd.ToString());
 		}
 	}
 }
