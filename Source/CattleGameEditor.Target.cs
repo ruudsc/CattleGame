@@ -5,11 +5,11 @@ using System.Collections.Generic;
 
 public class CattleGameEditorTarget : TargetRules
 {
-	public CattleGameEditorTarget( TargetInfo Target) : base(Target)
+	public CattleGameEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
-		DefaultBuildSettings = BuildSettingsVersion.V5;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_6;
+		DefaultBuildSettings = BuildSettingsVersion.V6;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_7;
 		ExtraModuleNames.Add("CattleGame");
 	}
 }

@@ -7,6 +7,7 @@
 #include "Components/SplineComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "CattleGame/Character/CattleCharacter.h"
+#include "CattleGame/Animals/CattleAnimal.h"
 #include "Net/UnrealNetwork.h"
 #include "CattleGame/CattleGame.h"
 #include "Engine/Engine.h"
@@ -485,12 +486,13 @@ void ALasso::ApplyConstraintForce(float DeltaTime)
 		}
 	}
 
-	// Apply velocity to target (toward owner) - use LaunchCharacter for AI-controlled characters
+	// Apply velocity to target (toward owner)
+	// Use LaunchCharacter which works well with AI movement
 	if (TargetChar && TargetMovement)
 	{
 		FVector TargetVelocityAdd = -VelocityChange * TargetRatio;
 
-		// For AI characters, use LaunchCharacter which bypasses AI movement overrides
+		// LaunchCharacter bypasses AI movement overrides
 		// XYOverride=false means add to existing, ZOverride=false means add to existing
 		TargetChar->LaunchCharacter(TargetVelocityAdd, false, false);
 
