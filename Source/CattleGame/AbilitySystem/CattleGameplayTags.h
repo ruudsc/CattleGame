@@ -34,6 +34,11 @@ namespace CattleGameplayTags
 	extern FNativeGameplayTag State_Weapon_Firing;
 	extern FNativeGameplayTag State_Weapon_Reloading;
 	extern FNativeGameplayTag State_Dead;
+	
+	// Cattle Tags
+	extern FNativeGameplayTag State_Cattle_Grazing;
+	extern FNativeGameplayTag State_Cattle_Guided;
+	extern FNativeGameplayTag State_Cattle_Avoiding;
 
 	// Attribute Tags
 	extern FNativeGameplayTag Attribute_Health;

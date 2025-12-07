@@ -487,12 +487,11 @@ void ALasso::ApplyConstraintForce(float DeltaTime)
 	}
 
 	// Apply velocity to target (toward owner)
-	// Use LaunchCharacter which works well with AI movement
+	// Use LaunchCharacter which bypasses AI movement overrides
 	if (TargetChar && TargetMovement)
 	{
 		FVector TargetVelocityAdd = -VelocityChange * TargetRatio;
 
-		// LaunchCharacter bypasses AI movement overrides
 		// XYOverride=false means add to existing, ZOverride=false means add to existing
 		TargetChar->LaunchCharacter(TargetVelocityAdd, false, false);
 

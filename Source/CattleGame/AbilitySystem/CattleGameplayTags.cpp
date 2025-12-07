@@ -33,6 +33,11 @@ namespace CattleGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Weapon_Reloading, "State.Weapon.Reloading", "Tag indicating character is currently reloading");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Dead, "State.Dead", "Tag indicating character is dead");
 
+	// Cattle Tags
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Cattle_Grazing, "State.Cattle.Grazing", "Tag indicating cattle is in a grazing zone");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Cattle_Guided, "State.Cattle.Guided", "Tag indicating cattle is being guided by a volume");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Cattle_Avoiding, "State.Cattle.Avoiding", "Tag indicating cattle is avoiding an area");
+
 	// Attribute Tags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Attribute_Health, "Attribute.Health", "Tag for health attribute");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Attribute_MovementSpeed, "Attribute.MovementSpeed", "Tag for movement speed attribute");

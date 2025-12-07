@@ -8,7 +8,7 @@ public class CattleGame : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "AIModule", "GameplayAbilities", "GameplayTags", "GameplayTasks", "CableComponent" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "AIModule", "GameplayAbilities", "GameplayTags", "GameplayTasks", "NavigationSystem", "CableComponent" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

@@ -71,6 +71,31 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Lasso|State")
 	TWeakObjectPtr<AActor> LassoOwner;
 
+	// ===== RESISTANCE & BREAK FORCE =====
+
+	/** Multiplier for how hard this target is to pull with lasso. Higher = harder to pull */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Resistance", meta = (ClampMin = 0.1, ClampMax = 5.0))
+	float RopeResistance = 1.0f;
+
+	/** Maximum rotation allowed when tethered (degrees from initial capture rotation) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Resistance", meta = (ClampMin = 0.0, ClampMax = 180.0))
+	float RotationAllowance = 45.0f;
+
+	/** Force threshold to break free from lasso */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Resistance", meta = (ClampMin = 500.0))
+	float BreakForce = 3000.0f;
+
+	/** How much this target fights against rope tension (0 = passive, 1 = fights hard) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Resistance", meta = (ClampMin = 0.0, ClampMax = 1.0))
+	float RopeFightIntensity = 0.5f;
+
+	// ===== DELEGATES =====
+
+	/** Called when rope tension exceeds BreakForce and target breaks free */
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRopeBroken);
+	UPROPERTY(BlueprintAssignable, Category = "Lasso|Events")
+	FOnRopeBroken OnRopeBroken;
+
 	// ===== API =====
 
 	/** Called when this target is caught by a lasso */
