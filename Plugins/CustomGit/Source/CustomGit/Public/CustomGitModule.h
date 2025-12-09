@@ -28,4 +28,11 @@ private:
 
     /** Delegate handle for asset save callback */
     FDelegateHandle PreSaveHandle;
+
+    /** Files that the user has already made a lock decision for during this session.
+     *  This prevents the dialog from appearing multiple times for the same file. */
+    TSet<FString> FilesWithLockDecision;
+
+    /** Frame number when we last cleared the decision cache */
+    uint64 LastDecisionClearFrame = 0;
 };

@@ -10,7 +10,7 @@ public class CustomGit : ModuleRules
 			new string[]
 			{
 				"Core",
-                "SourceControl",
+				"SourceControl",
 			}
 		);
 
@@ -21,12 +21,13 @@ public class CustomGit : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-                "Projects",
-                "ToolMenus",
-                "InputCore",
-                "EditorStyle",
-                "WorkspaceMenuStructure",
-                "EditorWidgets",
+				"Projects",
+				"ToolMenus",
+				"InputCore",
+				"EditorStyle",
+				"WorkspaceMenuStructure",
+				"EditorWidgets",
+				"UnrealEd",
 			}
 		);
 	}

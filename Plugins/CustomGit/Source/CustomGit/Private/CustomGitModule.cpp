@@ -2,6 +2,7 @@
 #include "CustomGitSourceControlProvider.h"
 #include "Features/IModularFeatures.h"
 #include "SCustomGitWindow.h"
+#include "SLockFileDialog.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
@@ -144,36 +145,142 @@ void FCustomGitModule::OnPreAssetSave(UObject *Asset, FObjectPreSaveContext Save
         return;
     }
 
-    // Check if this is an LFS tracked file and try to lock it
-    if (FCustomGitOperations::IsLFSTrackedFile(PackageFilename))
+    // Check if this is a binary/LFS tracked file
+    if (!FCustomGitOperations::IsBinaryAsset(PackageFilename))
     {
-        FString Error;
-        if (!FCustomGitOperations::LockFileIfLFS(PackageFilename, Error, false))
+        return; // Not a binary file, no need to lock
+    }
+
+    // Clear the decision cache periodically (every new frame) to allow re-prompting
+    // for files that were saved in a previous operation
+    uint64 CurrentFrame = GFrameCounter;
+    if (CurrentFrame != LastDecisionClearFrame)
+    {
+        FilesWithLockDecision.Empty();
+        LastDecisionClearFrame = CurrentFrame;
+    }
+
+    // Check if user already made a decision for this file in this save operation
+    if (FilesWithLockDecision.Contains(PackageFilename))
+    {
+        // User already decided, don't show dialog again
+        return;
+    }
+
+    // Get locks with proper ownership detection using --verify
+    TSet<FString> OurLocks;
+    TMap<FString, FString> OtherLocks;
+    FCustomGitOperations::GetLocksWithOwnership(OurLocks, OtherLocks);
+
+    FString RelativePath = PackageFilename;
+    FString RepoRoot = FCustomGitOperations::GetRepositoryRoot();
+    FPaths::MakePathRelativeTo(RelativePath, *(RepoRoot + TEXT("/")));
+    RelativePath = RelativePath.Replace(TEXT("\\"), TEXT("/"));
+    FString Filename = FPaths::GetCleanFilename(PackageFilename);
+
+    // Check if we own the lock (check multiple path formats)
+    bool bIsLockedByMe = OurLocks.Contains(RelativePath);
+    if (!bIsLockedByMe)
+    {
+        for (const FString &OurLock : OurLocks)
         {
-            // Show warning dialog
-            FText Title = LOCTEXT("LFSLockWarningTitle", "Git LFS Lock Warning");
-            FText Message = FText::Format(
-                LOCTEXT("LFSLockWarningMessage",
-                        "Warning: Could not acquire LFS lock for binary asset:\n\n{0}\n\n{1}\n\n"
-                        "This file may be locked by another user. Saving without a lock may cause merge conflicts.\n\n"
-                        "Do you want to continue saving anyway?"),
-                FText::FromString(FPaths::GetCleanFilename(PackageFilename)),
-                FText::FromString(Error));
-
-            EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, Message, Title);
-
-            if (Result == EAppReturnType::No)
+            if (OurLock.EndsWith(Filename) || FPaths::GetCleanFilename(OurLock) == Filename)
             {
-                // User chose not to save - we can't cancel the save from here directly,
-                // but we've warned them. In a more complete implementation, we'd use
-                // CanModify delegates or the source control checkout flow.
-                UE_LOG(LogTemp, Warning, TEXT("CustomGit: User was warned about LFS lock failure for %s"), *PackageFilename);
+                bIsLockedByMe = true;
+                break;
             }
+        }
+    }
+
+    // If locked by us, just proceed with the save - no dialog needed
+    if (bIsLockedByMe)
+    {
+        UE_LOG(LogTemp, Log, TEXT("CustomGit: File already locked by us: %s"), *PackageFilename);
+        return;
+    }
+
+    // Check if someone else has it locked
+    bool bIsLockedByOther = false;
+    FString LockOwner;
+
+    if (const FString *Owner = OtherLocks.Find(RelativePath))
+    {
+        bIsLockedByOther = true;
+        LockOwner = *Owner;
+    }
+    else
+    {
+        for (const auto &LockPair : OtherLocks)
+        {
+            if (LockPair.Key.EndsWith(Filename) || FPaths::GetCleanFilename(LockPair.Key) == Filename)
+            {
+                bIsLockedByOther = true;
+                LockOwner = LockPair.Value;
+                break;
+            }
+        }
+    }
+
+    // Show the lock dialog
+    FString DisplayFilename = FPaths::GetCleanFilename(PackageFilename);
+    ELockFileDialogResult DialogResult;
+
+    if (bIsLockedByOther)
+    {
+        // Locked by someone else - only show Save Without Locking and Cancel
+        DialogResult = SLockFileDialog::ShowDialog(
+            DisplayFilename,
+            FString(), // No error message
+            true,      // Is locked by other
+            LockOwner);
+    }
+    else
+    {
+        // File is not locked - ask if user wants to lock it
+        DialogResult = SLockFileDialog::ShowDialog(DisplayFilename);
+    }
+
+    // Handle the user's choice
+    switch (DialogResult)
+    {
+    case ELockFileDialogResult::Lock:
+    {
+        // This should only be called when file is NOT locked by someone else
+        FString Error;
+        bool bLockSuccess = FCustomGitOperations::LockFile(PackageFilename, Error);
+
+        if (bLockSuccess)
+        {
+            // Make file writable
+            FCustomGitOperations::SetFileReadOnly(PackageFilename, false);
+            UE_LOG(LogTemp, Log, TEXT("CustomGit: Successfully locked file: %s"), *PackageFilename);
         }
         else
         {
-            UE_LOG(LogTemp, Log, TEXT("CustomGit: Successfully locked LFS file %s"), *PackageFilename);
+            UE_LOG(LogTemp, Warning, TEXT("CustomGit: Failed to lock file %s: %s"), *PackageFilename, *Error);
         }
+        // Mark decision so we don't prompt again
+        FilesWithLockDecision.Add(PackageFilename);
+        break;
+    }
+
+    case ELockFileDialogResult::SaveWithoutLock:
+    {
+        // User chose to save without locking - proceed but log a warning
+        // Mark that user made a decision so we don't prompt again
+        FilesWithLockDecision.Add(PackageFilename);
+        UE_LOG(LogTemp, Warning, TEXT("CustomGit: Saving without lock: %s"), *PackageFilename);
+        break;
+    }
+
+    case ELockFileDialogResult::Cancel:
+    {
+        // User cancelled - mark the decision so we don't show dialog again
+        // Note: We can't actually cancel the save from this callback
+        FilesWithLockDecision.Add(PackageFilename);
+        UE_LOG(LogTemp, Log, TEXT("CustomGit: User cancelled save for: %s (save may still proceed)"), *PackageFilename);
+        break;
+    }
     }
 }
 

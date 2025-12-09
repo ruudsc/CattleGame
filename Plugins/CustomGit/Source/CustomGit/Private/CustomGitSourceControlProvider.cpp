@@ -48,32 +48,32 @@ bool FCustomGitSourceControlProvider::IsAvailable() const
     return true;
 }
 
-const FName& FCustomGitSourceControlProvider::GetName(void) const
+const FName &FCustomGitSourceControlProvider::GetName(void) const
 {
     static FName CustomGitName("CustomGit");
     return CustomGitName;
 }
 
-bool FCustomGitSourceControlProvider::QueryStateBranchConfig(const FString& ConfigSrc, const FString& ConfigDest)
+bool FCustomGitSourceControlProvider::QueryStateBranchConfig(const FString &ConfigSrc, const FString &ConfigDest)
 {
     return false;
 }
 
-void FCustomGitSourceControlProvider::RegisterStateBranches(const TArray<FString>& BranchNames, const FString& ContentRoot)
+void FCustomGitSourceControlProvider::RegisterStateBranches(const TArray<FString> &BranchNames, const FString &ContentRoot)
 {
 }
 
-int32 FCustomGitSourceControlProvider::GetStateBranchIndex(const FString& BranchName) const
+int32 FCustomGitSourceControlProvider::GetStateBranchIndex(const FString &BranchName) const
 {
     return INDEX_NONE;
 }
 
-bool FCustomGitSourceControlProvider::GetStateBranchAtIndex(int32 BranchIndex, FString& OutBranchName) const
+bool FCustomGitSourceControlProvider::GetStateBranchAtIndex(int32 BranchIndex, FString &OutBranchName) const
 {
     return false;
 }
 
-ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<FString>& InFiles, TArray<FSourceControlStateRef>& OutState, EStateCacheUsage::Type InStateCacheUsage)
+ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<FString> &InFiles, TArray<FSourceControlStateRef> &OutState, EStateCacheUsage::Type InStateCacheUsage)
 {
     if (InStateCacheUsage == EStateCacheUsage::ForceUpdate)
     {
@@ -84,7 +84,7 @@ ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<FStr
         // For now, return what we have in cache.
     }
 
-    for (const FString& File : InFiles)
+    for (const FString &File : InFiles)
     {
         if (StateCache.Contains(File))
         {
@@ -98,21 +98,21 @@ ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<FStr
     return ECommandResult::Succeeded; // Assuming we provided what we have
 }
 
-ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<UPackage*>& InPackages, TArray<FSourceControlStateRef>& OutState, EStateCacheUsage::Type InStateCacheUsage)
+ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<UPackage *> &InPackages, TArray<FSourceControlStateRef> &OutState, EStateCacheUsage::Type InStateCacheUsage)
 {
     TArray<FString> Files;
-    for (UPackage* Package : InPackages)
+    for (UPackage *Package : InPackages)
     {
         Files.Add(Package->GetLoadedPath().GetLocalFullPath());
     }
     return GetState(Files, OutState, InStateCacheUsage);
 }
 
-FSourceControlStatePtr FCustomGitSourceControlProvider::GetState(const UPackage* InPackage, EStateCacheUsage::Type InStateCacheUsage)
+FSourceControlStatePtr FCustomGitSourceControlProvider::GetState(const UPackage *InPackage, EStateCacheUsage::Type InStateCacheUsage)
 {
     TArray<FSourceControlStateRef> OutState;
-    TArray<UPackage*> Packages;
-    Packages.Add(const_cast<UPackage*>(InPackage));
+    TArray<UPackage *> Packages;
+    Packages.Add(const_cast<UPackage *>(InPackage));
     GetState(Packages, OutState, InStateCacheUsage);
     if (OutState.Num() > 0)
     {
@@ -121,20 +121,20 @@ FSourceControlStatePtr FCustomGitSourceControlProvider::GetState(const UPackage*
     return nullptr;
 }
 
-FSourceControlChangelistStatePtr FCustomGitSourceControlProvider::GetState(const FSourceControlChangelistRef& InChangelist, EStateCacheUsage::Type InStateCacheUsage)
+FSourceControlChangelistStatePtr FCustomGitSourceControlProvider::GetState(const FSourceControlChangelistRef &InChangelist, EStateCacheUsage::Type InStateCacheUsage)
 {
     return nullptr;
 }
 
-ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<FSourceControlChangelistRef>& InChangelists, TArray<FSourceControlChangelistStateRef>& OutState, EStateCacheUsage::Type InStateCacheUsage)
+ECommandResult::Type FCustomGitSourceControlProvider::GetState(const TArray<FSourceControlChangelistRef> &InChangelists, TArray<FSourceControlChangelistStateRef> &OutState, EStateCacheUsage::Type InStateCacheUsage)
 {
     return ECommandResult::Succeeded;
 }
 
-TArray<FSourceControlStateRef> FCustomGitSourceControlProvider::GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef&)> Predicate) const
+TArray<FSourceControlStateRef> FCustomGitSourceControlProvider::GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef &)> Predicate) const
 {
     TArray<FSourceControlStateRef> Result;
-    for (const auto& Pair : StateCache)
+    for (const auto &Pair : StateCache)
     {
         if (Predicate(Pair.Value))
         {
@@ -144,7 +144,7 @@ TArray<FSourceControlStateRef> FCustomGitSourceControlProvider::GetCachedStateBy
     return Result;
 }
 
-FDelegateHandle FCustomGitSourceControlProvider::RegisterSourceControlStateChanged_Handle(const FSourceControlStateChanged::FDelegate& SourceControlStateChanged)
+FDelegateHandle FCustomGitSourceControlProvider::RegisterSourceControlStateChanged_Handle(const FSourceControlStateChanged::FDelegate &SourceControlStateChanged)
 {
     return OnSourceControlStateChanged.Add(SourceControlStateChanged);
 }
@@ -154,11 +154,11 @@ void FCustomGitSourceControlProvider::UnregisterSourceControlStateChanged_Handle
     OnSourceControlStateChanged.Remove(Handle);
 }
 
-ECommandResult::Type FCustomGitSourceControlProvider::Execute(const FSourceControlOperationRef& InOperation, FSourceControlChangelistPtr InChangelist, const TArray<FString>& InFiles, EConcurrency::Type InConcurrency, const FSourceControlOperationComplete& InOperationCompleteDelegate)
+ECommandResult::Type FCustomGitSourceControlProvider::Execute(const FSourceControlOperationRef &InOperation, FSourceControlChangelistPtr InChangelist, const TArray<FString> &InFiles, EConcurrency::Type InConcurrency, const FSourceControlOperationComplete &InOperationCompleteDelegate)
 {
     // Create the command worker
-    FCustomGitSourceControlCommand* Command = new FCustomGitSourceControlCommand(InOperation, InFiles, InOperationCompleteDelegate);
-    
+    FCustomGitSourceControlCommand *Command = new FCustomGitSourceControlCommand(InOperation, InFiles, InOperationCompleteDelegate);
+
     // Create the thread to run the command
     if (InConcurrency == EConcurrency::Synchronous)
     {
@@ -174,23 +174,25 @@ ECommandResult::Type FCustomGitSourceControlProvider::Execute(const FSourceContr
     }
 }
 
-bool FCustomGitSourceControlProvider::CanExecuteOperation(const FSourceControlOperationRef& InOperation) const
+bool FCustomGitSourceControlProvider::CanExecuteOperation(const FSourceControlOperationRef &InOperation) const
 {
     return true;
 }
 
-bool FCustomGitSourceControlProvider::CanCancelOperation(const FSourceControlOperationRef& InOperation) const
+bool FCustomGitSourceControlProvider::CanCancelOperation(const FSourceControlOperationRef &InOperation) const
 {
     return false;
 }
 
-void FCustomGitSourceControlProvider::CancelOperation(const FSourceControlOperationRef& InOperation)
+void FCustomGitSourceControlProvider::CancelOperation(const FSourceControlOperationRef &InOperation)
 {
 }
 
 bool FCustomGitSourceControlProvider::UsesLocalReadOnlyState() const
 {
-    return false;
+    // Enable Perforce-style read-only workflow
+    // Files locked by others will be read-only on disk
+    return true;
 }
 
 bool FCustomGitSourceControlProvider::UsesChangelists() const
@@ -237,7 +239,7 @@ void FCustomGitSourceControlProvider::Tick()
 {
 }
 
-TArray<TSharedRef<class ISourceControlLabel>> FCustomGitSourceControlProvider::GetLabels(const FString& InMatchingSpec) const
+TArray<TSharedRef<class ISourceControlLabel>> FCustomGitSourceControlProvider::GetLabels(const FString &InMatchingSpec) const
 {
     return TArray<TSharedRef<class ISourceControlLabel>>();
 }
@@ -252,7 +254,7 @@ TSharedRef<class SWidget> FCustomGitSourceControlProvider::MakeSettingsWidget() 
     return SNew(STextBlock).Text(LOCTEXT("CustomGitSettings", "Custom Git Plugin Settings (None)"));
 }
 
-TSharedPtr<ISourceControlState, ESPMode::ThreadSafe> FCustomGitSourceControlProvider::GetState(const FString& Filename, EStateCacheUsage::Type CacheUsage)
+TSharedPtr<ISourceControlState, ESPMode::ThreadSafe> FCustomGitSourceControlProvider::GetState(const FString &Filename, EStateCacheUsage::Type CacheUsage)
 {
     if (StateCache.Contains(Filename))
     {
@@ -261,12 +263,15 @@ TSharedPtr<ISourceControlState, ESPMode::ThreadSafe> FCustomGitSourceControlProv
     return nullptr;
 }
 
-void FCustomGitSourceControlProvider::UpdateStateCache(const TMap<FString, FString>& Statuses)
+void FCustomGitSourceControlProvider::UpdateStateCache(const TMap<FString, FString> &Statuses)
 {
-    for (const auto& Pair : Statuses)
+    // Get current user name once for all comparisons
+    FString CurrentUserName = FCustomGitOperations::GetCurrentUserName();
+
+    for (const auto &Pair : Statuses)
     {
-        const FString& Filename = Pair.Key;
-        const FString& Status = Pair.Value;
+        const FString &Filename = Pair.Key;
+        const FString &Status = Pair.Value;
 
         if (!StateCache.Contains(Filename))
         {
@@ -274,24 +279,75 @@ void FCustomGitSourceControlProvider::UpdateStateCache(const TMap<FString, FStri
         }
 
         TSharedRef<FCustomGitSourceControlState, ESPMode::ThreadSafe> State = StateCache[Filename];
-        // Parse "M", "A", etc into State flags
-        // For now, simple implementation
-        State->bIsSourceControlled = true; 
-        
-        if (Status.Contains("??"))
+
+        // Parse git status codes
+        // Status format: "XY" where X=index state, Y=worktree state
+        // Or contains "|LOCKED:username"
+
+        FString GitStatus = Status;
+        FString LockOwner;
+
+        // Check for lock info appended to status
+        int32 LockIndex = Status.Find(TEXT("|LOCKED:"));
+        if (LockIndex != INDEX_NONE)
         {
-            State->bIsSourceControlled = false;
+            GitStatus = Status.Left(LockIndex);
+            LockOwner = Status.RightChop(LockIndex + 8); // Skip "|LOCKED:"
         }
-        else if (Status.Contains("M"))
+        else if (Status.StartsWith(TEXT("LOCKED:")))
         {
-            State->bIsModified = true;
+            // File is only known because it's locked (no git status change)
+            GitStatus.Empty();
+            LockOwner = Status.RightChop(7); // Skip "LOCKED:"
         }
-        
-        if (Status.Contains("LOCKED"))
+
+        // Parse git status codes using the new helper
+        if (!GitStatus.IsEmpty())
         {
-             State->bIsCheckedOut = true;
+            State->SetWorkingCopyStateFromGitStatus(GitStatus);
         }
+        else
+        {
+            // Default to unchanged if no git status
+            State->WorkingCopyState = EGitWorkingCopyState::Unchanged;
+        }
+
+        // Process lock information
+        if (!LockOwner.IsEmpty())
+        {
+            // File is tracked by LFS
+            State->bIsLFSTracked = true;
+
+            // Check if locked by current user or another user
+            if (LockOwner.Equals(CurrentUserName, ESearchCase::IgnoreCase))
+            {
+                // Locked by us - checked out
+                State->SetLockState(EGitLFSLockState::LockedByMe);
+            }
+            else
+            {
+                // Locked by someone else
+                State->SetLockState(EGitLFSLockState::LockedByOther, LockOwner);
+            }
+        }
+        else
+        {
+            // Not locked
+            State->SetLockState(EGitLFSLockState::NotLocked);
+        }
+
+        // Check if file is LFS trackable based on extension
+        if (!State->bIsLFSTracked)
+        {
+            State->bIsLFSTracked = FCustomGitOperations::IsBinaryAsset(Filename);
+        }
+
+        // Update timestamp
+        State->TimeStamp = FDateTime::Now();
     }
+
+    // Notify listeners that state changed
+    OnSourceControlStateChanged.Broadcast();
 }
 
 #undef LOCTEXT_NAMESPACE
