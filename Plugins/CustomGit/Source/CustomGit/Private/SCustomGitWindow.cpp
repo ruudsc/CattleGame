@@ -343,34 +343,47 @@ FReply SCustomGitWindow::OnViewHistoryClicked()
 
 FReply SCustomGitWindow::OnCommitClicked()
 {
-    // If viewing Local, we might auto-stage?
-    // If viewing Staged, we commit them?
-    // User expectation: "Submit content"
-    // Git workflow: Stage then Commit.
-
-    // Simplification: Commit all SELECTED files in the current view.
-    // If in Local view -> Stage + Commit? Or just Commit directly (git commit file list).
-    // If in Staged view -> Commit.
+    FString Msg = CommitMessageInput->GetText().ToString();
+    if (Msg.IsEmpty())
+    {
+        FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NoCommitMessage", "Please enter a commit message."));
+        return FReply::Handled();
+    }
 
     TArray<FString> FilesToCommit;
     TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
-    for (const auto &FileItem : SelectedItems)
+    
+    // If files are selected, commit those
+    if (SelectedItems.Num() > 0)
     {
-        FilesToCommit.Add(FileItem->Filename);
+        for (const auto &FileItem : SelectedItems)
+        {
+            FilesToCommit.Add(FileItem->Filename);
+        }
     }
-
-    if (FilesToCommit.Num() == 0)
+    // If in Staged view with no selection, commit all staged files
+    else if (CurrentViewMode == EGitViewMode::StagedChanges && StagedFileList.Num() > 0)
+    {
+        for (const auto &FileItem : StagedFileList)
+        {
+            FilesToCommit.Add(FileItem->Filename);
+        }
+    }
+    else
+    {
+        FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NoFilesToCommit", "No files to commit. Select files or switch to Staged Changes view."));
         return FReply::Handled();
-
-    FString Msg = CommitMessageInput->GetText().ToString();
-    if (Msg.IsEmpty())
-        return FReply::Handled();
+    }
 
     FString Error;
     if (FCustomGitOperations::Commit(Msg, FilesToCommit, Error))
     {
         CommitMessageInput->SetText(FText::GetEmpty());
         OnRefreshClicked();
+    }
+    else if (!Error.IsEmpty())
+    {
+        FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(FString::Printf(TEXT("Commit failed: %s"), *Error)));
     }
 
     return FReply::Handled();
@@ -461,8 +474,7 @@ TSharedPtr<SWidget> SCustomGitWindow::OnOpenBranchContextMenu()
                     // Push with -u to set upstream tracking
                     FCustomGitOperations::RunGitCommand(TEXT("push"), {TEXT("-u"), TEXT("origin"), BranchName}, {}, Results, Errors);
                     UpdateBranchList();
-                    OnRefreshClicked();
-                })));
+                    OnRefreshClicked(); })));
     }
 
     // Always show Push option
@@ -475,8 +487,7 @@ TSharedPtr<SWidget> SCustomGitWindow::OnOpenBranchContextMenu()
                                          {
                 TArray<FString> Results, Errors;
                 FCustomGitOperations::RunGitCommand(TEXT("push"), {TEXT("origin"), BranchName}, {}, Results, Errors);
-                OnRefreshClicked();
-            })));
+                OnRefreshClicked(); })));
 
     MenuBuilder.AddSeparator();
 
@@ -961,29 +972,63 @@ TSharedRef<ITableRow> SCustomGitWindow::OnGenerateSidebarRow(TSharedPtr<FString>
 
 void SCustomGitWindow::OnContextDiscardChanges()
 {
-    TArray<FString> FilesToDiscard;
     TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
+
+    TArray<FString> TrackedFiles;
+    TArray<FString> UntrackedFiles;
+
     for (const auto &Item : SelectedItems)
     {
-        FilesToDiscard.Add(Item->Filename);
+        // Check if it's an untracked file
+        if (Item->Status == TEXT("Untracked") || Item->Status.Contains(TEXT("??")))
+        {
+            UntrackedFiles.Add(Item->Filename);
+        }
+        else
+        {
+            TrackedFiles.Add(Item->Filename);
+        }
     }
 
-    if (FilesToDiscard.Num() > 0)
+    int32 TotalFiles = TrackedFiles.Num() + UntrackedFiles.Num();
+    if (TotalFiles > 0)
     {
-        // Show confirmation dialog
-        FText Message = FText::Format(
-            LOCTEXT("DiscardConfirm", "Are you sure you want to discard changes to {0} file(s)? This cannot be undone."),
-            FText::AsNumber(FilesToDiscard.Num()));
+        // Build confirmation message
+        FString MessageText;
+        if (UntrackedFiles.Num() > 0 && TrackedFiles.Num() > 0)
+        {
+            MessageText = FString::Printf(TEXT("Are you sure you want to discard changes to %d file(s)?\n\n%d tracked file(s) will be reverted.\n%d untracked file(s) will be DELETED.\n\nThis cannot be undone."),
+                                          TotalFiles, TrackedFiles.Num(), UntrackedFiles.Num());
+        }
+        else if (UntrackedFiles.Num() > 0)
+        {
+            MessageText = FString::Printf(TEXT("Are you sure you want to DELETE %d untracked file(s)?\n\nThis cannot be undone."),
+                                          UntrackedFiles.Num());
+        }
+        else
+        {
+            MessageText = FString::Printf(TEXT("Are you sure you want to discard changes to %d file(s)?\n\nThis cannot be undone."),
+                                          TrackedFiles.Num());
+        }
 
-        EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, Message);
+        EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, FText::FromString(MessageText));
         if (Result == EAppReturnType::Yes)
         {
             TArray<FString> Results, Errors;
+
             // Use git checkout -- for tracked files
-            for (const FString &File : FilesToDiscard)
+            for (const FString &File : TrackedFiles)
             {
                 FCustomGitOperations::RunGitCommand(TEXT("checkout"), {TEXT("--")}, {File}, Results, Errors);
             }
+
+            // Delete untracked files from disk
+            for (const FString &File : UntrackedFiles)
+            {
+                FString FullPath = FPaths::Combine(FCustomGitOperations::GetRepositoryRoot(), File);
+                IFileManager::Get().Delete(*FullPath);
+            }
+
             RefreshStatus();
         }
     }
