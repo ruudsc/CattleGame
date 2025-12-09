@@ -47,6 +47,21 @@ bool FCustomGitOperations::RunGitCommand(const FString &Command, const TArray<FS
     FString GitBinary = TEXT("git"); // Should be configurable
     FString RepoRoot = GetRepositoryRoot();
 
+    // Build the display command for history (without -C path)
+    FString DisplayCommand = FString::Printf(TEXT("git %s"), *Command);
+    for (const FString &Param : Parameters)
+    {
+        DisplayCommand += TEXT(" ");
+        DisplayCommand += Param;
+    }
+    for (const FString &File : Files)
+    {
+        DisplayCommand += TEXT(" \"");
+        DisplayCommand += File;
+        DisplayCommand += TEXT("\"");
+    }
+    AddToHistory(DisplayCommand);
+
     // Use -C flag to run git from the repository root
     FString CommandLine = FString::Printf(TEXT("-C \"%s\" %s"), *RepoRoot, *Command);
 
@@ -62,8 +77,6 @@ bool FCustomGitOperations::RunGitCommand(const FString &Command, const TArray<FS
         CommandLine += File;
         CommandLine += TEXT("\"");
     }
-
-    AddToHistory(CommandLine);
 
     // This is a simplified implementation. In reality, we need pipe handling.
     FString StdOut, StdErr;
@@ -315,10 +328,11 @@ bool FCustomGitOperations::Commit(const FString &Message, const TArray<FString> 
         RunGitCommand(TEXT("add"), {TEXT("--")}, {File}, Results, Errors);
     }
 
-    // Then commit with the message
+    // Then commit with the message (quote the message to handle spaces and special chars)
     Results.Empty();
     Errors.Empty();
-    if (RunGitCommand(TEXT("commit"), {TEXT("-m"), Message}, TArray<FString>(), Results, Errors))
+    FString QuotedMessage = FString::Printf(TEXT("\"%s\""), *Message);
+    if (RunGitCommand(TEXT("commit"), {TEXT("-m"), QuotedMessage}, TArray<FString>(), Results, Errors))
     {
         return true;
     }
