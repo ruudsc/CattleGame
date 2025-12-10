@@ -57,6 +57,13 @@ public:
     static void GetAllLocks(TMap<FString, FString> &OutLocks);
 
     /**
+     * Get all LFS locks with ownership info using --verify
+     * @param OutOurLocks - Set of file paths that WE own locks for
+     * @param OutOtherLocks - Map of file paths to owner names for locks owned by others
+     */
+    static void GetLocksWithOwnership(TSet<FString> &OutOurLocks, TMap<FString, FString> &OutOtherLocks);
+
+    /**
      * Revert a file (unlock and checkout)
      */
     static bool RevertFile(const FString &File, FString &OutError);
@@ -146,8 +153,33 @@ public:
      */
     static bool LockFileIfLFS(const FString &File, FString &OutError, bool bShowWarning = true);
 
+    /**
+     * Force lock a file using LFS (steals lock from other user)
+     * Use with caution - only when user explicitly requests force checkout
+     */
+    static bool ForceLockFile(const FString &File, FString &OutError);
+
+    /**
+     * Set a file as read-only on the filesystem
+     */
+    static bool SetFileReadOnly(const FString &File, bool bReadOnly);
+
+    /**
+     * Get the current git user name (from git config user.name)
+     */
+    static FString GetCurrentUserName();
+
+    /**
+     * Check if the current user owns the lock for a file
+     * @param File - The file path to check
+     * @param OutOwner - If locked, the owner's name
+     * @return true if the current user owns the lock, false otherwise
+     */
+    static bool IsLockedByCurrentUser(const FString &File, FString *OutOwner = nullptr);
+
 private:
     static TArray<FString> CommandHistory;
     static FString RepositoryRoot;
+    static FString CachedUserName;
     static void AddToHistory(const FString &Command);
 };

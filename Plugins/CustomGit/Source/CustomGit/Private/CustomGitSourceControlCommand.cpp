@@ -6,11 +6,8 @@
 #include "Async/Async.h"
 #include "SourceControlOperations.h"
 
-FCustomGitSourceControlCommand::FCustomGitSourceControlCommand(const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TArray<FString>& InFiles, const FSourceControlOperationComplete& InOperationCompleteDelegate)
-    : Operation(InOperation)
-    , Files(InFiles)
-    , OperationCompleteDelegate(InOperationCompleteDelegate)
-    , Result(ECommandResult::Failed)
+FCustomGitSourceControlCommand::FCustomGitSourceControlCommand(const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe> &InOperation, const TArray<FString> &InFiles, const FSourceControlOperationComplete &InOperationCompleteDelegate)
+    : Operation(InOperation), Files(InFiles), OperationCompleteDelegate(InOperationCompleteDelegate), Result(ECommandResult::Failed)
 {
 }
 
@@ -40,56 +37,137 @@ uint32 FCustomGitSourceControlCommand::Run()
     }
     else if (Operation->GetName() == "CheckOut")
     {
+        // Perforce-style Check Out: Lock the file and make it writable
         bool bAllSuccess = true;
-        for (const FString& File : Files)
+        for (const FString &File : Files)
         {
             FString Error;
+
+            // First, check if file is already locked by someone else
+            FString LockOwner;
+            if (!FCustomGitOperations::IsLockedByCurrentUser(File, &LockOwner))
+            {
+                if (!LockOwner.IsEmpty())
+                {
+                    // File is locked by someone else
+                    ErrorMessages.Add(FString::Printf(TEXT("Cannot check out %s - locked by %s"), *FPaths::GetCleanFilename(File), *LockOwner));
+                    bAllSuccess = false;
+                    continue;
+                }
+            }
+            else
+            {
+                // Already locked by us, just make sure it's writable
+                FCustomGitOperations::SetFileReadOnly(File, false);
+                continue;
+            }
+
+            // Try to lock the file
             if (!FCustomGitOperations::LockFile(File, Error))
             {
-                ErrorMessages.Add(FString::Printf(TEXT("Failed to lock %s: %s"), *File, *Error));
+                ErrorMessages.Add(FString::Printf(TEXT("Failed to lock %s: %s"), *FPaths::GetCleanFilename(File), *Error));
                 bAllSuccess = false;
+            }
+            else
+            {
+                // Successfully locked - make the file writable
+                FCustomGitOperations::SetFileReadOnly(File, false);
+
+                // Update status for this file
+                FString CurrentUser = FCustomGitOperations::GetCurrentUserName();
+                StatusResults.Add(File, TEXT("LOCKED:") + CurrentUser);
             }
         }
         Result = bAllSuccess ? ECommandResult::Succeeded : ECommandResult::Failed;
-        // Update status for these files?
-        // Typically we want to refresh status after operation.
-        // We can create a partial status map here.
-        // For simplicity, let's trust the operation and maybe force a status update later.
-        // Or manually update the map passed back to Provider.
-        // For CheckOut, we know we locked them.
+    }
+    else if (Operation->GetName() == "ForceCheckOut")
+    {
+        // Force Check Out: Steal the lock from another user
+        bool bAllSuccess = true;
+        for (const FString &File : Files)
+        {
+            FString Error;
+            if (!FCustomGitOperations::ForceLockFile(File, Error))
+            {
+                ErrorMessages.Add(FString::Printf(TEXT("Failed to force lock %s: %s"), *FPaths::GetCleanFilename(File), *Error));
+                bAllSuccess = false;
+            }
+            else
+            {
+                // Successfully force-locked - make the file writable
+                FCustomGitOperations::SetFileReadOnly(File, false);
+
+                // Update status for this file
+                FString CurrentUser = FCustomGitOperations::GetCurrentUserName();
+                StatusResults.Add(File, TEXT("LOCKED:") + CurrentUser);
+            }
+        }
+        Result = bAllSuccess ? ECommandResult::Succeeded : ECommandResult::Failed;
     }
     else if (Operation->GetName() == "Revert")
     {
+        // Perforce-style Revert: Unlock the file, discard changes, make read-only
         bool bAllSuccess = true;
-        for (const FString& File : Files)
+        for (const FString &File : Files)
         {
             FString Error;
+
+            // First, unlock the file if locked
+            FCustomGitOperations::UnlockFile(File, Error);
+
+            // Then revert changes (git checkout)
             if (!FCustomGitOperations::RevertFile(File, Error))
             {
-                ErrorMessages.Add(FString::Printf(TEXT("Failed to revert %s: %s"), *File, *Error));
-                bAllSuccess = false;
+                // If revert fails, it might be an untracked file or already clean
+                // Log but don't fail
+                UE_LOG(LogTemp, Warning, TEXT("Revert warning for %s: %s"), *File, *Error);
             }
+
+            // Make file read-only (Perforce-style)
+            FCustomGitOperations::SetFileReadOnly(File, true);
         }
         Result = bAllSuccess ? ECommandResult::Succeeded : ECommandResult::Failed;
     }
     else if (Operation->GetName() == "CheckIn")
     {
+        // Perforce-style Check In: Commit files, unlock them, make read-only
         TSharedRef<FCheckIn, ESPMode::ThreadSafe> CheckInOp = StaticCastSharedRef<FCheckIn>(Operation);
         FString Msg = CheckInOp->GetDescription().ToString();
-        
+
         bool bAllSuccess = true;
-        // Commit files
         FString Error;
+
+        // Commit files
         if (!FCustomGitOperations::Commit(Msg, Files, Error))
         {
-             ErrorMessages.Add(Error);
-             bAllSuccess = false;
+            ErrorMessages.Add(Error);
+            bAllSuccess = false;
         }
-        
-        // Auto-Push?
-        // If success, push?
-        // FCustomGitOperations::Push(Error);
-        
+        else
+        {
+            // Commit succeeded - unlock all files and make them read-only
+            for (const FString &File : Files)
+            {
+                // Unlock the file
+                FString UnlockError;
+                FCustomGitOperations::UnlockFile(File, UnlockError);
+
+                // Make file read-only (Perforce-style)
+                FCustomGitOperations::SetFileReadOnly(File, true);
+            }
+        }
+
+        // Auto-Push after successful commit
+        if (bAllSuccess)
+        {
+            FString PushError;
+            if (!FCustomGitOperations::Push(PushError))
+            {
+                // Push failed - warn but don't fail the check-in
+                UE_LOG(LogTemp, Warning, TEXT("Auto-push failed: %s"), *PushError);
+            }
+        }
+
         Result = bAllSuccess ? ECommandResult::Succeeded : ECommandResult::Failed;
     }
     else if (Operation->GetName() == "Sync")
@@ -123,24 +201,24 @@ void FCustomGitSourceControlCommand::Exit()
     // Dispatch the result back to the game thread
     // We captured 'this' pointer, so we must be careful not to delete before this lambda executes if it were not auto-delete.
     // But since we delete IN the lambda, it's fine.
-    
-    // Copy the results locally for the lambda caption if needed, 
-    // or just capture 'this' since we are inside Exit() which is called by the thread 
+
+    // Copy the results locally for the lambda caption if needed,
+    // or just capture 'this' since we are inside Exit() which is called by the thread
     // and we need to dispatch to GameThread.
-    
+
     // Actually, 'this' is alive until we delete it.
-    
+
     TMap<FString, FString> CapturedStatusResults = StatusResults;
 
     AsyncTask(ENamedThreads::GameThread, [this, CapturedStatusResults]()
-    {
-        // Update provider cache if we have status results
-        if (CapturedStatusResults.Num() > 0)
-        {
-            FCustomGitModule::Get().GetProvider().UpdateStateCache(CapturedStatusResults);
-        }
+              {
+                  // Update provider cache if we have status results
+                  if (CapturedStatusResults.Num() > 0)
+                  {
+                      FCustomGitModule::Get().GetProvider().UpdateStateCache(CapturedStatusResults);
+                  }
 
-        OperationCompleteDelegate.ExecuteIfBound(Operation, Result);
-        delete this; // Auto-delete on completion
-    });
+                  OperationCompleteDelegate.ExecuteIfBound(Operation, Result);
+                  delete this; // Auto-delete on completion
+              });
 }

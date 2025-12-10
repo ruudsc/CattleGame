@@ -5,6 +5,7 @@
 
 TArray<FString> FCustomGitOperations::CommandHistory;
 FString FCustomGitOperations::RepositoryRoot;
+FString FCustomGitOperations::CachedUserName;
 
 FString FCustomGitOperations::GetRepositoryRoot()
 {
@@ -296,6 +297,72 @@ void FCustomGitOperations::GetAllLocks(TMap<FString, FString> &OutLocks)
         UE_LOG(LogTemp, Log, TEXT("CustomGit: Found %d LFS locks (standard output)"), OutLocks.Num());
     }
 }
+
+void FCustomGitOperations::GetLocksWithOwnership(TSet<FString> &OutOurLocks, TMap<FString, FString> &OutOtherLocks)
+{
+    TArray<FString> Results, Errors;
+
+    // Use --verify flag which marks our locks with "O" prefix
+    // Output format: "O path/to/file\tUsername\tID:123" for our locks
+    //                "  path/to/file\tUsername\tID:123" for others' locks
+    if (RunGitLFSCommand(TEXT("locks"), {TEXT("--verify")}, TArray<FString>(), Results, Errors))
+    {
+        for (const FString &Line : Results)
+        {
+            if (Line.Len() < 2)
+                continue;
+
+            // First character indicates ownership: 'O' = ours, ' ' = theirs
+            bool bIsOurs = (Line[0] == TEXT('O'));
+
+            // Skip the ownership marker and any following whitespace
+            FString TrimmedLine = Line.RightChop(1).TrimStart();
+
+            // Find ID: marker to help parse
+            int32 IdIndex = TrimmedLine.Find(TEXT("ID:"));
+            if (IdIndex == INDEX_NONE)
+                continue;
+
+            // Parse: "path/to/file\tUsername\tID:123" or space-separated
+            TArray<FString> Parts;
+            TrimmedLine.ParseIntoArray(Parts, TEXT("\t"), true);
+
+            FString FilePath;
+            FString Owner;
+
+            if (Parts.Num() >= 2)
+            {
+                FilePath = Parts[0].TrimStartAndEnd();
+                Owner = Parts[1].TrimStartAndEnd();
+            }
+            else
+            {
+                // Fallback: space-separated
+                int32 FirstSpace = TrimmedLine.Find(TEXT(" "));
+                if (FirstSpace != INDEX_NONE)
+                {
+                    FilePath = TrimmedLine.Left(FirstSpace);
+                    Owner = TrimmedLine.Mid(FirstSpace + 1, IdIndex - FirstSpace - 1).TrimStartAndEnd();
+                }
+            }
+
+            if (!FilePath.IsEmpty())
+            {
+                if (bIsOurs)
+                {
+                    OutOurLocks.Add(FilePath);
+                }
+                else
+                {
+                    OutOtherLocks.Add(FilePath, Owner);
+                }
+            }
+        }
+
+        UE_LOG(LogTemp, Log, TEXT("CustomGit: Found %d locks owned by us, %d by others"), OutOurLocks.Num(), OutOtherLocks.Num());
+    }
+}
+
 bool FCustomGitOperations::RevertFile(const FString &File, FString &OutError)
 {
     // Revert means discarding local changes.
@@ -706,5 +773,106 @@ bool FCustomGitOperations::LockFileIfLFS(const FString &File, FString &OutError,
     OutError = FString::Printf(TEXT("Failed to lock file '%s': %s"), *FPaths::GetCleanFilename(File), *Error);
     // Only show warning if requested and if it's not a "Lock exists" (which we couldn't handle above)
     // Actually, if we are here, we failed to resolve "Lock exists" or it's another error.
+    return false;
+}
+
+bool FCustomGitOperations::ForceLockFile(const FString &File, FString &OutError)
+{
+    TArray<FString> Results, Errors;
+    // git lfs lock --force "file"
+    // --force steals the lock from another user
+    if (RunGitLFSCommand(TEXT("lock"), {TEXT("--force")}, {File}, Results, Errors))
+    {
+        return true;
+    }
+
+    if (Errors.Num() > 0)
+    {
+        OutError = Errors[0];
+    }
+    return false;
+}
+
+bool FCustomGitOperations::SetFileReadOnly(const FString &File, bool bReadOnly)
+{
+    IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+    if (bReadOnly)
+    {
+        // Make file read-only
+        return PlatformFile.SetReadOnly(*File, true);
+    }
+    else
+    {
+        // Make file writable
+        return PlatformFile.SetReadOnly(*File, false);
+    }
+}
+
+FString FCustomGitOperations::GetCurrentUserName()
+{
+    if (CachedUserName.IsEmpty())
+    {
+        TArray<FString> Results, Errors;
+        if (RunGitCommand(TEXT("config"), {TEXT("user.name")}, TArray<FString>(), Results, Errors))
+        {
+            if (Results.Num() > 0)
+            {
+                CachedUserName = Results[0].TrimStartAndEnd();
+            }
+        }
+    }
+    return CachedUserName;
+}
+
+bool FCustomGitOperations::IsLockedByCurrentUser(const FString &File, FString *OutOwner)
+{
+    TMap<FString, FString> Locks;
+    GetAllLocks(Locks);
+
+    // Get the relative path for comparison
+    FString RepoRoot = GetRepositoryRoot();
+    FString RelativePath = File;
+    FPaths::MakePathRelativeTo(RelativePath, *RepoRoot);
+    RelativePath = RelativePath.Replace(TEXT("\\"), TEXT("/"));
+
+    // Also try with just the filename for matching
+    FString FileName = FPaths::GetCleanFilename(File);
+
+    // Check multiple path formats
+    const FString *Owner = Locks.Find(RelativePath);
+    if (!Owner)
+    {
+        Owner = Locks.Find(File);
+    }
+    if (!Owner)
+    {
+        // Try to find by filename (less precise but handles path mismatches)
+        for (const auto &LockPair : Locks)
+        {
+            if (LockPair.Key.EndsWith(FileName) || FPaths::GetCleanFilename(LockPair.Key) == FileName)
+            {
+                Owner = &LockPair.Value;
+                break;
+            }
+        }
+    }
+
+    if (Owner)
+    {
+        if (OutOwner)
+        {
+            *OutOwner = *Owner;
+        }
+
+        // Compare with current user
+        FString CurrentUser = GetCurrentUserName();
+        if (!CurrentUser.IsEmpty())
+        {
+            // Case-insensitive comparison (git usernames may vary in case)
+            return Owner->Equals(CurrentUser, ESearchCase::IgnoreCase);
+        }
+    }
+
     return false;
 }
