@@ -1,18 +1,18 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "CattleAnimal.h"
 #include "CattleGame/Weapons/Lasso/LassoableComponent.h"
 #include "CattleGame/AbilitySystem/CattleAbilitySystemComponent.h"
 #include "CattleGame/AbilitySystem/CattleAttributeSet.h"
 #include "CattleGame/Volumes/Components/CattleVolumeLogicComponent.h"
+#include "CattleGame/Volumes/CattleFlowSubsystem.h"
 #include "CattleGame/AI/CattleAIController.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values
 ACattleAnimal::ACattleAnimal()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	// Create lassoable component for lasso target support
@@ -29,14 +29,13 @@ ACattleAnimal::ACattleAnimal()
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
 	AttributeSet = CreateDefaultSubobject<UCattleAttributeSet>(TEXT("AttributeSet"));
-
 }
 
 // Called when the game starts or when spawned
 void ACattleAnimal::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
@@ -48,8 +47,17 @@ void ACattleAnimal::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Poll Volumes for flow
-	if (ActiveVolumeLogics.Num() > 0)
+	// Poll new flow sources for direction
+	if (ActiveFlowSources.Num() > 0)
+	{
+		FVector FlowDir = CalculateFlowDirection();
+		if (!FlowDir.IsNearlyZero())
+		{
+			AddMovementInput(FlowDir, 1.0f);
+		}
+	}
+	// DEPRECATED: Also poll old volume logic for backwards compatibility
+	else if (ActiveVolumeLogics.Num() > 0)
 	{
 		FVector FlowDir = CalculateVolumeFlowDirection();
 		if (!FlowDir.IsNearlyZero())
@@ -59,12 +67,81 @@ void ACattleAnimal::Tick(float DeltaTime)
 	}
 }
 
-UAbilitySystemComponent* ACattleAnimal::GetAbilitySystemComponent() const
+UAbilitySystemComponent *ACattleAnimal::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
 }
 
-void ACattleAnimal::AddActiveVolumeLogic(UCattleVolumeLogicComponent* LogicComp)
+// ===== NEW FLOW SOURCE SYSTEM =====
+
+void ACattleAnimal::AddActiveFlowSource(TScriptInterface<ICattleFlowSource> FlowSource)
+{
+	if (FlowSource.GetInterface() && !ActiveFlowSources.Contains(FlowSource))
+	{
+		ActiveFlowSources.Add(FlowSource);
+	}
+}
+
+void ACattleAnimal::RemoveActiveFlowSource(TScriptInterface<ICattleFlowSource> FlowSource)
+{
+	if (FlowSource.GetInterface())
+	{
+		ActiveFlowSources.Remove(FlowSource);
+	}
+}
+
+TArray<TScriptInterface<ICattleFlowSource>> ACattleAnimal::GetActiveFlowSources() const
+{
+	TArray<TScriptInterface<ICattleFlowSource>> ValidSources;
+	for (const auto &Source : ActiveFlowSources)
+	{
+		if (Source.GetInterface())
+		{
+			ValidSources.Add(Source);
+		}
+	}
+	return ValidSources;
+}
+
+FVector ACattleAnimal::CalculateFlowDirection() const
+{
+	FVector TotalFlow = FVector::ZeroVector;
+	float TotalWeight = 0.0f;
+	FVector MyLoc = GetActorLocation();
+
+	for (const TScriptInterface<ICattleFlowSource> &Source : ActiveFlowSources)
+	{
+		if (!Source.GetInterface())
+		{
+			continue;
+		}
+
+		float Weight = 0.0f;
+		FVector FlowDir = ICattleFlowSource::Execute_GetFlowDirection(Source.GetObject(), MyLoc, Weight);
+
+		if (Weight > 0.0f && !FlowDir.IsNearlyZero())
+		{
+			// Weight by priority as well
+			int32 Priority = ICattleFlowSource::Execute_GetFlowPriority(Source.GetObject());
+			float PriorityMultiplier = 1.0f + (float)Priority * 0.1f; // Small boost per priority level
+
+			TotalFlow += FlowDir * Weight * PriorityMultiplier;
+			TotalWeight += Weight * PriorityMultiplier;
+		}
+	}
+
+	// Normalize the result
+	if (TotalWeight > KINDA_SMALL_NUMBER)
+	{
+		return (TotalFlow / TotalWeight).GetSafeNormal();
+	}
+
+	return FVector::ZeroVector;
+}
+
+// ===== DEPRECATED VOLUME LOGIC SYSTEM =====
+
+void ACattleAnimal::AddActiveVolumeLogic(UCattleVolumeLogicComponent *LogicComp)
 {
 	if (LogicComp && !ActiveVolumeLogics.Contains(LogicComp))
 	{
@@ -72,7 +149,7 @@ void ACattleAnimal::AddActiveVolumeLogic(UCattleVolumeLogicComponent* LogicComp)
 	}
 }
 
-void ACattleAnimal::RemoveActiveVolumeLogic(UCattleVolumeLogicComponent* LogicComp)
+void ACattleAnimal::RemoveActiveVolumeLogic(UCattleVolumeLogicComponent *LogicComp)
 {
 	if (LogicComp)
 	{
@@ -80,12 +157,13 @@ void ACattleAnimal::RemoveActiveVolumeLogic(UCattleVolumeLogicComponent* LogicCo
 	}
 }
 
-TArray<UCattleVolumeLogicComponent*> ACattleAnimal::GetActiveVolumeLogics() const
+TArray<UCattleVolumeLogicComponent *> ACattleAnimal::GetActiveVolumeLogics() const
 {
-	TArray<UCattleVolumeLogicComponent*> Result;
-	for (auto& Comp : ActiveVolumeLogics)
+	TArray<UCattleVolumeLogicComponent *> Result;
+	for (auto &Comp : ActiveVolumeLogics)
 	{
-		if (Comp) Result.Add(Comp);
+		if (Comp)
+			Result.Add(Comp);
 	}
 	return Result;
 }
@@ -95,7 +173,7 @@ FVector ACattleAnimal::CalculateVolumeFlowDirection() const
 	FVector TotalFlow = FVector::ZeroVector;
 	FVector MyLoc = GetActorLocation();
 
-	for (UCattleVolumeLogicComponent* Logic : ActiveVolumeLogics)
+	for (UCattleVolumeLogicComponent *Logic : ActiveVolumeLogics)
 	{
 		if (Logic)
 		{
@@ -109,9 +187,7 @@ FVector ACattleAnimal::CalculateVolumeFlowDirection() const
 }
 
 // Called to bind functionality to input
-void ACattleAnimal::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ACattleAnimal::SetupPlayerInputComponent(UInputComponent *PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
 }
-

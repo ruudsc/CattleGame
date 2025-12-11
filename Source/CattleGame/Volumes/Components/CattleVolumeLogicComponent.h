@@ -9,13 +9,15 @@ class ACattleAnimal;
 class ACattleVolume;
 
 /**
+ * DEPRECATED: Use ACattleFlowActorBase derived actors instead (ACattleAvoidVolume, ACattleGrazeVolume, ACattleGuideSpline).
+ *
  * Base Logic Component for Cattle Volumes.
  * Handles:
  * 1. Listening for Overlap events from the Owner (Volume).
  * 2. Applying/Removing GameplayEffects to Cattle.
  * 3. Providing flow vectors for movement.
  */
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), Abstract)
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent, DeprecatedNode, DeprecationMessage = "Use ACattleFlowActorBase derived actors instead"), Abstract)
 class CATTLEGAME_API UCattleVolumeLogicComponent : public UActorComponent
 {
 	GENERATED_BODY()
