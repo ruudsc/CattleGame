@@ -8,8 +8,124 @@
 #include "Misc/MessageDialog.h"
 #include "HAL/PlatformFileManager.h"
 #include "Misc/Paths.h"
+#include "Async/Async.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "SCustomGitWindow"
+
+// ============================================================================
+// FGitFileWatcher Implementation - Background thread for monitoring git changes
+// ============================================================================
+
+FGitFileWatcher::FGitFileWatcher(SCustomGitWindow* InParent)
+    : Parent(InParent)
+    , bKeepRunning(true)
+{
+    // Get the repository root to locate .git folder
+    FString RepoRoot = FCustomGitOperations::GetRepositoryRoot();
+    if (!RepoRoot.IsEmpty())
+    {
+        GitIndexPath = FPaths::Combine(RepoRoot, TEXT(".git/index"));
+        GitRefsPath = FPaths::Combine(RepoRoot, TEXT(".git/refs/heads"));
+        GitHeadPath = FPaths::Combine(RepoRoot, TEXT(".git/HEAD"));
+        
+        // Initialize last modification times
+        IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+        if (PlatformFile.FileExists(*GitIndexPath))
+        {
+            LastIndexModTime = PlatformFile.GetTimeStamp(*GitIndexPath);
+        }
+        if (PlatformFile.DirectoryExists(*GitRefsPath))
+        {
+            // Use HEAD file timestamp as proxy for refs changes
+            LastRefsModTime = PlatformFile.GetTimeStamp(*GitHeadPath);
+        }
+        if (PlatformFile.FileExists(*GitHeadPath))
+        {
+            LastHeadModTime = PlatformFile.GetTimeStamp(*GitHeadPath);
+        }
+    }
+    
+    UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: Initialized. Watching index: %s"), *GitIndexPath);
+}
+
+uint32 FGitFileWatcher::Run()
+{
+    IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+    
+    while (bKeepRunning)
+    {
+        // Sleep for 500ms between checks
+        FPlatformProcess::Sleep(0.5f);
+        
+        if (!bKeepRunning)
+        {
+            break;
+        }
+        
+        bool bIndexChanged = false;
+        bool bRefsChanged = false;
+        
+        // Check .git/index modification time (file status changes)
+        if (!GitIndexPath.IsEmpty() && PlatformFile.FileExists(*GitIndexPath))
+        {
+            FDateTime CurrentIndexModTime = PlatformFile.GetTimeStamp(*GitIndexPath);
+            if (CurrentIndexModTime > LastIndexModTime)
+            {
+                LastIndexModTime = CurrentIndexModTime;
+                bIndexChanged = true;
+                UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: Index changed"));
+            }
+        }
+        
+        // Check .git/HEAD modification time (branch changes)
+        if (!GitHeadPath.IsEmpty() && PlatformFile.FileExists(*GitHeadPath))
+        {
+            FDateTime CurrentHeadModTime = PlatformFile.GetTimeStamp(*GitHeadPath);
+            if (CurrentHeadModTime > LastHeadModTime)
+            {
+                LastHeadModTime = CurrentHeadModTime;
+                bRefsChanged = true;
+                UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: HEAD changed"));
+            }
+        }
+        
+        // Trigger callbacks on game thread
+        if (bIndexChanged && Parent)
+        {
+            AsyncTask(ENamedThreads::GameThread, [this]()
+            {
+                if (Parent)
+                {
+                    Parent->OnGitIndexChanged();
+                }
+            });
+        }
+        
+        if (bRefsChanged && Parent)
+        {
+            AsyncTask(ENamedThreads::GameThread, [this]()
+            {
+                if (Parent)
+                {
+                    Parent->OnGitRefsChanged();
+                }
+            });
+        }
+    }
+    
+    UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: Thread exiting"));
+    return 0;
+}
+
+void FGitFileWatcher::Stop()
+{
+    bKeepRunning = false;
+}
+
+// ============================================================================
+// SCustomGitWindow Implementation
+// ============================================================================
 
 void SCustomGitWindow::Construct(const FArguments &InArgs)
 {
@@ -153,6 +269,174 @@ void SCustomGitWindow::Construct(const FArguments &InArgs)
 
     // Set initial view
     OnViewModeChanged(EGitViewMode::LocalChanges);
+
+    // Start file watcher thread for auto-refresh
+    FileWatcher = MakeUnique<FGitFileWatcher>(this);
+    FileWatcherThread = FRunnableThread::Create(FileWatcher.Get(), TEXT("GitFileWatcher"), 0, TPri_BelowNormal);
+    UE_LOG(LogTemp, Log, TEXT("SCustomGitWindow: File watcher thread started"));
+}
+
+SCustomGitWindow::~SCustomGitWindow()
+{
+    // Stop and clean up file watcher thread
+    if (FileWatcher.IsValid())
+    {
+        FileWatcher->Stop();
+    }
+    
+    if (FileWatcherThread)
+    {
+        FileWatcherThread->WaitForCompletion();
+        delete FileWatcherThread;
+        FileWatcherThread = nullptr;
+    }
+    
+    // Clear any pending debounce timer
+    if (GEditor)
+    {
+        GEditor->GetTimerManager()->ClearTimer(DebounceTimerHandle);
+    }
+    
+    UE_LOG(LogTemp, Log, TEXT("SCustomGitWindow: Destroyed, file watcher stopped"));
+}
+
+void SCustomGitWindow::OnGitIndexChanged()
+{
+    // Called from file watcher when .git/index changes
+    // Schedule a debounced status refresh
+    ScheduleDebouncedRefresh(EGitRefreshType::Status | EGitRefreshType::Locks);
+}
+
+void SCustomGitWindow::OnGitRefsChanged()
+{
+    // Called from file watcher when .git/HEAD or refs change
+    // Schedule a debounced branch refresh
+    ScheduleDebouncedRefresh(EGitRefreshType::Branches);
+}
+
+void SCustomGitWindow::ScheduleDebouncedRefresh(EGitRefreshType RefreshType)
+{
+    // Accumulate refresh types
+    PendingRefreshType |= RefreshType;
+    
+    // Reset the debounce timer
+    if (GEditor)
+    {
+        GEditor->GetTimerManager()->ClearTimer(DebounceTimerHandle);
+        GEditor->GetTimerManager()->SetTimer(
+            DebounceTimerHandle,
+            FTimerDelegate::CreateSP(this, &SCustomGitWindow::OnDebouncedRefresh),
+            DEBOUNCE_DELAY,
+            false
+        );
+    }
+}
+
+void SCustomGitWindow::OnDebouncedRefresh()
+{
+    EGitRefreshType TypeToRefresh = PendingRefreshType;
+    PendingRefreshType = EGitRefreshType::None;
+    
+    UE_LOG(LogTemp, Log, TEXT("SCustomGitWindow: OnDebouncedRefresh executing (type flags: %d)"), (uint8)TypeToRefresh);
+    
+    if (EnumHasAnyFlags(TypeToRefresh, EGitRefreshType::Status))
+    {
+        RefreshStatusOnly();
+    }
+    
+    if (EnumHasAnyFlags(TypeToRefresh, EGitRefreshType::Branches))
+    {
+        UpdateBranchList();
+        UpdateCommitHistory();
+    }
+    
+    if (EnumHasAnyFlags(TypeToRefresh, EGitRefreshType::Locks))
+    {
+        // Lock changes are handled in RefreshStatusOnly via GetLocksWithOwnership
+        // The cache will be invalidated by the lock/unlock operations themselves
+    }
+}
+
+void SCustomGitWindow::RefreshStatusOnly()
+{
+    // Lightweight refresh that only updates file status
+    // Used by auto-refresh to avoid refreshing everything
+    LocalFileList.Empty();
+    StagedFileList.Empty();
+    LockedFileList.Empty();
+    
+    // Invalidate lock cache since external changes may have occurred
+    FCustomGitOperations::InvalidateLockCache();
+
+    // Get Status
+    TMap<FString, FString> StatusMap;
+    FCustomGitOperations::UpdateStatus(TArray<FString>(), StatusMap);
+
+    // Get lock ownership info
+    TSet<FString> OurLocks;
+    TMap<FString, FString> OtherLocks;
+    FCustomGitOperations::GetLocksWithOwnership(OurLocks, OtherLocks);
+
+    // Parse Status
+    for (const auto &Pair : StatusMap)
+    {
+        FString Filename = Pair.Key;
+        FString RawStatus = Pair.Value;
+
+        while (RawStatus.Len() < 2)
+            RawStatus += " ";
+
+        TCHAR X = RawStatus[0];
+        TCHAR Y = RawStatus[1];
+
+        FDateTime ModTime = FCustomGitOperations::GetFileLastModified(Filename);
+        bool bLockedByUs = OurLocks.Contains(Filename);
+
+        if (X != ' ' && X != '?')
+        {
+            TSharedPtr<FGitFileStatus> Item = MakeShareable(new FGitFileStatus());
+            Item->Filename = Filename;
+            Item->Status = FString::Printf(TEXT("Staged (%c)"), X);
+            Item->ModificationTime = ModTime;
+            Item->bIsLockedByUs = bLockedByUs;
+            StagedFileList.Add(Item);
+        }
+
+        if (Y != ' ' || (X == '?' && Y == '?'))
+        {
+            TSharedPtr<FGitFileStatus> Item = MakeShareable(new FGitFileStatus());
+            Item->Filename = Filename;
+            Item->Status = (X == '?' && Y == '?') ? TEXT("Untracked") : FString::Printf(TEXT("Modified (%c)"), Y);
+            Item->ModificationTime = ModTime;
+            Item->bIsLockedByUs = bLockedByUs;
+            LocalFileList.Add(Item);
+        }
+    }
+
+    // Get Locks
+    for (const FString &LockedFile : OurLocks)
+    {
+        TSharedPtr<FGitFileStatus> Item = MakeShareable(new FGitFileStatus());
+        Item->Filename = LockedFile;
+        Item->Status = TEXT("Locked by us");
+        Item->ModificationTime = FCustomGitOperations::GetFileLastModified(LockedFile);
+        Item->bIsLockedByUs = true;
+        LockedFileList.Add(Item);
+    }
+    for (const auto &Pair : OtherLocks)
+    {
+        TSharedPtr<FGitFileStatus> Item = MakeShareable(new FGitFileStatus());
+        Item->Filename = Pair.Key;
+        Item->Status = FString::Printf(TEXT("Locked by %s"), *Pair.Value);
+        Item->ModificationTime = FCustomGitOperations::GetFileLastModified(Pair.Key);
+        Item->bIsLockedByUs = false;
+        LockedFileList.Add(Item);
+    }
+
+    if (FileListPanel.IsValid())
+    {
+        FileListPanel->RefreshList();
+    }
 }
 
 void SCustomGitWindow::RefreshStatus()

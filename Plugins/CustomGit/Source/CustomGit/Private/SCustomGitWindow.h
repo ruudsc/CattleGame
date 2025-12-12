@@ -4,6 +4,9 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/SListView.h"
 #include "CustomGitOperations.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "TimerManager.h"
 
 #include "SCustomGitViewModeSelector.h"
 #include "SCustomGitFileListPanel.h"
@@ -26,6 +29,47 @@ struct FGitFileStatus
     }
 };
 
+// Forward declaration
+class SCustomGitWindow;
+
+/**
+ * FGitFileWatcher - Background thread for monitoring git repository changes
+ * Watches .git/index and .git/refs for modifications to trigger UI refresh
+ */
+class FGitFileWatcher : public FRunnable
+{
+public:
+    FGitFileWatcher(SCustomGitWindow* InParent);
+    virtual ~FGitFileWatcher() {}
+
+    // FRunnable interface
+    virtual bool Init() override { return true; }
+    virtual uint32 Run() override;
+    virtual void Stop() override;
+    virtual void Exit() override {}
+
+private:
+    SCustomGitWindow* Parent;
+    FString GitIndexPath;
+    FString GitRefsPath;
+    FString GitHeadPath;
+    FDateTime LastIndexModTime;
+    FDateTime LastRefsModTime;
+    FDateTime LastHeadModTime;
+    TAtomic<bool> bKeepRunning;
+};
+
+// Enum for refresh types (bitflags)
+enum class EGitRefreshType : uint8
+{
+    None = 0,
+    Status = 1 << 0,       // File status changed
+    Branches = 1 << 1,     // Branch refs changed
+    Locks = 1 << 2,        // Lock status changed
+    All = 0xFF
+};
+ENUM_CLASS_FLAGS(EGitRefreshType);
+
 /**
  * SCustomGitWindow - Main git window coordinator
  *
@@ -45,9 +89,15 @@ public:
     SLATE_END_ARGS()
 
     void Construct(const FArguments &InArgs);
+    virtual ~SCustomGitWindow();
 
     // Refresh the UI
     void RefreshStatus();
+
+    // Called by file watcher when git index changes (thread-safe)
+    void OnGitIndexChanged();
+    // Called by file watcher when git refs change (thread-safe)
+    void OnGitRefsChanged();
 
 private:
     // Data Source - owned by main window, shared with components
@@ -65,6 +115,20 @@ private:
     FString CurrentUserName;
     FString CurrentUserEmail;
     EGitViewMode CurrentViewMode = EGitViewMode::LocalChanges;
+
+    // Auto-refresh file watcher (Approach 2)
+    TUniquePtr<FGitFileWatcher> FileWatcher;
+    FRunnableThread* FileWatcherThread = nullptr;
+
+    // Debounce timer for auto-refresh
+    FTimerHandle DebounceTimerHandle;
+    EGitRefreshType PendingRefreshType = EGitRefreshType::None;
+    static constexpr float DEBOUNCE_DELAY = 0.5f; // Wait 500ms after last change
+
+    // Debounced refresh methods
+    void ScheduleDebouncedRefresh(EGitRefreshType RefreshType);
+    void OnDebouncedRefresh();
+    void RefreshStatusOnly();
 
     // Update methods for data refresh
     void UpdateBranchList();
