@@ -7,6 +7,13 @@ TArray<FString> FCustomGitOperations::CommandHistory;
 FString FCustomGitOperations::RepositoryRoot;
 FString FCustomGitOperations::CachedUserName;
 
+// Lock cache static variables (Issue #3 from performance review)
+TMap<FString, FString> FCustomGitOperations::CachedLocks;
+TSet<FString> FCustomGitOperations::CachedOurLocks;
+TMap<FString, FString> FCustomGitOperations::CachedOtherLocks;
+double FCustomGitOperations::LastLocksCacheTime = -1000.0;
+double FCustomGitOperations::LastOwnershipCacheTime = -1000.0;
+
 FString FCustomGitOperations::GetRepositoryRoot()
 {
     if (RepositoryRoot.IsEmpty())
@@ -45,7 +52,7 @@ FString FCustomGitOperations::GetRepositoryRoot()
 
 bool FCustomGitOperations::RunGitCommand(const FString &Command, const TArray<FString> &Parameters, const TArray<FString> &Files, TArray<FString> &OutResults, TArray<FString> &OutErrors)
 {
-    auto QuoteArg = [](const FString& Arg) -> FString
+    auto QuoteArg = [](const FString &Arg) -> FString
     {
         const FString Trimmed = Arg.TrimStartAndEnd();
         if (Trimmed.Len() >= 2 && Trimmed.StartsWith(TEXT("\"")) && Trimmed.EndsWith(TEXT("\"")))
@@ -203,12 +210,11 @@ void FCustomGitOperations::UpdateStatus(const TArray<FString> &Files, TMap<FStri
 bool FCustomGitOperations::LockFile(const FString &File, FString &OutError)
 {
     TArray<FString> Results, Errors;
-    TArray<FString> Params;
-    Params.Add(TEXT("lock"));
     // git lfs lock "file"
 
     if (RunGitLFSCommand(TEXT("lock"), TArray<FString>(), {File}, Results, Errors))
     {
+        InvalidateLockCache(); // Cache is now stale
         return true;
     }
 
@@ -225,6 +231,7 @@ bool FCustomGitOperations::UnlockFile(const FString &File, FString &OutError)
     // git lfs unlock "file"
     if (RunGitLFSCommand(TEXT("unlock"), TArray<FString>(), {File}, Results, Errors))
     {
+        InvalidateLockCache(); // Cache is now stale
         return true;
     }
 
@@ -237,6 +244,14 @@ bool FCustomGitOperations::UnlockFile(const FString &File, FString &OutError)
 
 void FCustomGitOperations::GetAllLocks(TMap<FString, FString> &OutLocks)
 {
+    // Check cache first (Issue #3 from performance review)
+    double CurrentTime = FPlatformTime::Seconds();
+    if (CurrentTime - LastLocksCacheTime < LOCKS_CACHE_DURATION)
+    {
+        OutLocks = CachedLocks;
+        return;
+    }
+
     TArray<FString> Results, Errors;
 
     // Try with --json first for more reliable parsing
@@ -281,6 +296,10 @@ void FCustomGitOperations::GetAllLocks(TMap<FString, FString> &OutLocks)
         }
 
         UE_LOG(LogTemp, Log, TEXT("CustomGit: Found %d LFS locks"), OutLocks.Num());
+
+        // Update cache
+        CachedLocks = OutLocks;
+        LastLocksCacheTime = CurrentTime;
         return;
     }
 
@@ -323,11 +342,33 @@ void FCustomGitOperations::GetAllLocks(TMap<FString, FString> &OutLocks)
         }
 
         UE_LOG(LogTemp, Log, TEXT("CustomGit: Found %d LFS locks (standard output)"), OutLocks.Num());
+
+        // Update cache
+        CachedLocks = OutLocks;
+        LastLocksCacheTime = CurrentTime;
     }
+}
+
+void FCustomGitOperations::InvalidateLockCache()
+{
+    LastLocksCacheTime = -1000.0;
+    LastOwnershipCacheTime = -1000.0;
+    CachedLocks.Empty();
+    CachedOurLocks.Empty();
+    CachedOtherLocks.Empty();
 }
 
 void FCustomGitOperations::GetLocksWithOwnership(TSet<FString> &OutOurLocks, TMap<FString, FString> &OutOtherLocks)
 {
+    // Check cache first (Issue #3 from performance review)
+    double CurrentTime = FPlatformTime::Seconds();
+    if (CurrentTime - LastOwnershipCacheTime < LOCKS_CACHE_DURATION)
+    {
+        OutOurLocks = CachedOurLocks;
+        OutOtherLocks = CachedOtherLocks;
+        return;
+    }
+
     TArray<FString> Results, Errors;
 
     // Use --verify flag which marks our locks with "O" prefix
@@ -388,6 +429,11 @@ void FCustomGitOperations::GetLocksWithOwnership(TSet<FString> &OutOurLocks, TMa
         }
 
         UE_LOG(LogTemp, Log, TEXT("CustomGit: Found %d locks owned by us, %d by others"), OutOurLocks.Num(), OutOtherLocks.Num());
+
+        // Update cache
+        CachedOurLocks = OutOurLocks;
+        CachedOtherLocks = OutOtherLocks;
+        LastOwnershipCacheTime = CurrentTime;
     }
 }
 
@@ -417,10 +463,22 @@ bool FCustomGitOperations::Commit(const FString &Message, const TArray<FString> 
 {
     TArray<FString> Results, Errors;
 
-    // First, stage the files
-    for (const FString &File : Files)
+    // Stage all files in a single batch command (Issue #2 from performance review)
+    // This reduces N git processes to 1 for staging
+    if (Files.Num() > 0)
     {
-        RunGitCommand(TEXT("add"), {TEXT("--")}, {File}, Results, Errors);
+        if (!RunGitCommand(TEXT("add"), {TEXT("--")}, Files, Results, Errors))
+        {
+            if (Errors.Num() > 0)
+            {
+                OutError = TEXT("Failed to stage files: ") + Errors[0];
+            }
+            else
+            {
+                OutError = TEXT("Failed to stage files");
+            }
+            return false;
+        }
     }
 
     // Then commit with the message (quote the message to handle spaces and special chars)
@@ -730,32 +788,35 @@ bool FCustomGitOperations::LockFileIfLFS(const FString &File, FString &OutError,
         return true; // Not LFS tracked, nothing to do
     }
 
-    // Check if already locked by us
-    TMap<FString, FString> Locks;
-    GetAllLocks(Locks);
-
     // Get the relative path for comparison
     FString RepoRoot = GetRepositoryRoot();
     FString RelativePath = File;
     FPaths::MakePathRelativeTo(RelativePath, *RepoRoot);
     RelativePath = RelativePath.Replace(TEXT("\\"), TEXT("/"));
 
-    // Check if we already have this file locked
-    if (Locks.Contains(RelativePath) || Locks.Contains(File))
-    {
-        // Already locked, check if it's by us or someone else
-        const FString *Owner = Locks.Find(RelativePath);
-        if (!Owner)
-        {
-            Owner = Locks.Find(File);
-        }
+    // Issue #1 from performance review: Use GetLocksWithOwnership once instead of multiple GetAllLocks calls
+    TSet<FString> OurLocks;
+    TMap<FString, FString> OtherLocks;
+    GetLocksWithOwnership(OurLocks, OtherLocks);
 
-        if (Owner)
-        {
-            // TODO: Compare with current user
-            // For now, assume if locked, we're good
-            return true;
-        }
+    // Check if we already have this file locked
+    if (OurLocks.Contains(RelativePath) || OurLocks.Contains(File))
+    {
+        // Already locked by us
+        return true;
+    }
+
+    // Check if locked by someone else
+    const FString *OtherOwner = OtherLocks.Find(RelativePath);
+    if (!OtherOwner)
+    {
+        OtherOwner = OtherLocks.Find(File);
+    }
+    if (OtherOwner)
+    {
+        // Locked by someone else
+        OutError = FString::Printf(TEXT("File '%s' is locked by %s"), *FPaths::GetCleanFilename(File), **OtherOwner);
+        return false;
     }
 
     // Try to lock the file
@@ -765,42 +826,8 @@ bool FCustomGitOperations::LockFileIfLFS(const FString &File, FString &OutError,
         return true;
     }
 
-    // Check if error specifically mentions "Lock exists"
-    if (Error.Contains(TEXT("Lock exists")))
-    {
-        // Refresh locks and check ownership again
-        Locks.Empty();
-        GetAllLocks(Locks);
-
-        if (Locks.Contains(RelativePath) || Locks.Contains(File))
-        {
-            // We (or someone) has the lock.
-            // Ideally we check owner, but for now assume if it exists and we triggered it, and we are here, maybe we own it?
-            // Or at least, if we can't lock it because it's already locked, we should check if *we* are the owner.
-            // Since GetAllLocks returns Owner Name, we can check.
-            // But we don't know "our" name easily without `git config user.name`.
-            // For now, suppress the error if we see the lock exists, assuming we might have it or it's just a state sync issue.
-            // BUT, if someone else has it, we should NOT suppress.
-
-            // If we really want to know if WE own it, we need to check user.name.
-            // Let's rely on the fact that if we just failed to lock because it exists, and we are working on it,
-            // suppressing the hard error and treating as "Checked Out" (or returning true implying we have write access?) is risky but better than popup loop.
-            // Actually, if we return false, UE shows popup.
-            // If we return true, UE assumes we have locked it.
-            // Safe approach: Return true only if we are fairly sure.
-
-            // Check if the lock owner matches git config user.name?
-            // Too complex for now.
-            // Let's just return true and Log a warning.
-            UE_LOG(LogTemp, Warning, TEXT("Lock for '%s' exists, assuming we own it or can edit. Error: %s"), *File, *Error);
-            return true;
-        }
-    }
-
-    // Lock failed - file might be locked by someone else
+    // Lock failed - check if it's because someone else just locked it
     OutError = FString::Printf(TEXT("Failed to lock file '%s': %s"), *FPaths::GetCleanFilename(File), *Error);
-    // Only show warning if requested and if it's not a "Lock exists" (which we couldn't handle above)
-    // Actually, if we are here, we failed to resolve "Lock exists" or it's another error.
     return false;
 }
 
@@ -811,6 +838,7 @@ bool FCustomGitOperations::ForceLockFile(const FString &File, FString &OutError)
     // --force steals the lock from another user
     if (RunGitLFSCommand(TEXT("lock"), {TEXT("--force")}, {File}, Results, Errors))
     {
+        InvalidateLockCache(); // Cache is now stale
         return true;
     }
 
