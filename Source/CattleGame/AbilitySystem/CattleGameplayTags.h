@@ -35,6 +35,28 @@ namespace CattleGameplayTags
 	extern FNativeGameplayTag State_Weapon_Reloading;
 	extern FNativeGameplayTag State_Dead;
 
+	// ===== Animal State Tags =====
+	extern FNativeGameplayTag State_Animal_Idle;
+	extern FNativeGameplayTag State_Animal_Grazing;
+	extern FNativeGameplayTag State_Animal_Walking;
+	extern FNativeGameplayTag State_Animal_Panicked;
+	extern FNativeGameplayTag State_Animal_Fleeing;
+	extern FNativeGameplayTag State_Animal_Lured;
+	extern FNativeGameplayTag State_Animal_Lassoed;
+
+	// ===== Animal Attribute Tags =====
+	extern FNativeGameplayTag Attribute_Animal_Fear;
+	extern FNativeGameplayTag Attribute_Animal_CalmLevel;
+	extern FNativeGameplayTag Attribute_Animal_HerdAffinity;
+
+	// ===== Animal Effect Tags =====
+	extern FNativeGameplayTag Effect_Animal_Fear;
+	extern FNativeGameplayTag Effect_Animal_Calm;
+	extern FNativeGameplayTag Effect_Animal_AreaGraze;
+	extern FNativeGameplayTag Effect_Animal_AreaPanic;
+	extern FNativeGameplayTag Effect_Animal_AreaAvoid;
+	extern FNativeGameplayTag Effect_Animal_FlowGuide;
+
 	// Attribute Tags
 	extern FNativeGameplayTag Attribute_Health;
 	extern FNativeGameplayTag Attribute_MovementSpeed;
@@ -52,4 +74,8 @@ namespace CattleGameplayTags
 	extern FNativeGameplayTag GameplayCue_Lasso_Throw;
 	extern FNativeGameplayTag GameplayCue_Dynamite_Throw;
 	extern FNativeGameplayTag GameplayCue_Dynamite_Explode;
+
+	// ===== Animal GameplayCue Tags =====
+	extern FNativeGameplayTag GameplayCue_Animal_Panic;
+	extern FNativeGameplayTag GameplayCue_Animal_Calm;
 }
