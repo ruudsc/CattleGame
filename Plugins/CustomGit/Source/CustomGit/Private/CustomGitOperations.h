@@ -177,9 +177,23 @@ public:
      */
     static bool IsLockedByCurrentUser(const FString &File, FString *OutOwner = nullptr);
 
+    /**
+     * Invalidate the lock cache (call after lock/unlock operations)
+     */
+    static void InvalidateLockCache();
+
 private:
     static TArray<FString> CommandHistory;
     static FString RepositoryRoot;
     static FString CachedUserName;
+
+    // Lock caching for performance (Issue #3 from performance review)
+    static TMap<FString, FString> CachedLocks;
+    static TSet<FString> CachedOurLocks;
+    static TMap<FString, FString> CachedOtherLocks;
+    static double LastLocksCacheTime;
+    static double LastOwnershipCacheTime;
+    static constexpr double LOCKS_CACHE_DURATION = 2.0; // Cache locks for 2 seconds
+
     static void AddToHistory(const FString &Command);
 };

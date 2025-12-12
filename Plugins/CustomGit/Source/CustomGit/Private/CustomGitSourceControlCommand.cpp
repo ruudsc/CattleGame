@@ -38,31 +38,43 @@ uint32 FCustomGitSourceControlCommand::Run()
     else if (Operation->GetName() == "CheckOut")
     {
         // Perforce-style Check Out: Lock the file and make it writable
+        // Issue #5 from performance review: Fetch all locks ONCE before the loop
         bool bAllSuccess = true;
+
+        // Pre-fetch all lock ownership info (reduces N queries to 1)
+        TSet<FString> OurLocks;
+        TMap<FString, FString> OtherLocks;
+        FCustomGitOperations::GetLocksWithOwnership(OurLocks, OtherLocks);
+        FString CurrentUser = FCustomGitOperations::GetCurrentUserName();
+        FString RepoRoot = FCustomGitOperations::GetRepositoryRoot();
+
         for (const FString &File : Files)
         {
-            FString Error;
+            // Convert to relative path for lock comparison
+            FString RelativePath = File;
+            FPaths::MakePathRelativeTo(RelativePath, *(RepoRoot + TEXT("/")));
+            RelativePath = RelativePath.Replace(TEXT("\\"), TEXT("/"));
 
-            // First, check if file is already locked by someone else
-            FString LockOwner;
-            if (!FCustomGitOperations::IsLockedByCurrentUser(File, &LockOwner))
-            {
-                if (!LockOwner.IsEmpty())
-                {
-                    // File is locked by someone else
-                    ErrorMessages.Add(FString::Printf(TEXT("Cannot check out %s - locked by %s"), *FPaths::GetCleanFilename(File), *LockOwner));
-                    bAllSuccess = false;
-                    continue;
-                }
-            }
-            else
+            // Check in pre-fetched lock data
+            if (OurLocks.Contains(RelativePath))
             {
                 // Already locked by us, just make sure it's writable
                 FCustomGitOperations::SetFileReadOnly(File, false);
+                StatusResults.Add(File, TEXT("LOCKED:") + CurrentUser);
                 continue;
             }
 
-            // Try to lock the file
+            // Check if locked by someone else
+            if (const FString *OtherOwner = OtherLocks.Find(RelativePath))
+            {
+                // File is locked by someone else
+                ErrorMessages.Add(FString::Printf(TEXT("Cannot check out %s - locked by %s"), *FPaths::GetCleanFilename(File), **OtherOwner));
+                bAllSuccess = false;
+                continue;
+            }
+
+            // Not locked - try to lock the file
+            FString Error;
             if (!FCustomGitOperations::LockFile(File, Error))
             {
                 ErrorMessages.Add(FString::Printf(TEXT("Failed to lock %s: %s"), *FPaths::GetCleanFilename(File), *Error));
@@ -74,7 +86,6 @@ uint32 FCustomGitSourceControlCommand::Run()
                 FCustomGitOperations::SetFileReadOnly(File, false);
 
                 // Update status for this file
-                FString CurrentUser = FCustomGitOperations::GetCurrentUserName();
                 StatusResults.Add(File, TEXT("LOCKED:") + CurrentUser);
             }
         }
