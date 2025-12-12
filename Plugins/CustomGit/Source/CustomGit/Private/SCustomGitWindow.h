@@ -18,6 +18,7 @@ struct FGitFileStatus
     FString Filename;
     FString Status; // e.g. "M", "A", "??"
     FDateTime ModificationTime;
+    bool bIsLockedByUs = false; // True if this file is locked by the current user
 
     TSharedRef<FGitFileStatus> AsShared()
     {
@@ -43,7 +44,7 @@ public:
     SLATE_BEGIN_ARGS(SCustomGitWindow) {}
     SLATE_END_ARGS()
 
-    void Construct(const FArguments& InArgs);
+    void Construct(const FArguments &InArgs);
 
     // Refresh the UI
     void RefreshStatus();
@@ -74,28 +75,28 @@ private:
 
     // Callbacks from components
     void OnViewModeChanged(EGitViewMode NewMode);
-    void OnCommitRequested(const FString& CommitMessage);
+    void OnCommitRequested(const FString &CommitMessage);
     void OnSyncClicked();
     void OnResetClicked();
 
     // File operations
-    void OnStageFiles(const TArray<FString>& Files);
-    void OnUnstageFiles(const TArray<FString>& Files);
-    void OnLockFiles(const TArray<FString>& Files);
-    void OnUnlockFiles(const TArray<FString>& Files);
-    void OnDiscardFiles(const TArray<FString>& Files);
-    void OnStashFiles(const TArray<FString>& Files);
+    void OnStageFiles(const TArray<FString> &Files);
+    void OnUnstageFiles(const TArray<FString> &Files);
+    void OnLockFiles(const TArray<FString> &Files);
+    void OnUnlockFiles(const TArray<FString> &Files);
+    void OnDiscardFiles(const TArray<FString> &Files);
+    void OnStashFiles(const TArray<FString> &Files);
 
     // Branch operations
-    void OnSwitchBranch(const FString& BranchName);
-    void OnCreateBranch(const FString& BranchName);
-    void OnDeleteBranch(const FString& BranchName);
-    void OnPushBranch(const FString& BranchName);
-    void OnResetBranch(const FString& BranchName);
+    void OnSwitchBranch(const FString &BranchName);
+    void OnCreateBranch(const FString &BranchName);
+    void OnDeleteBranch(const FString &BranchName);
+    void OnPushBranch(const FString &BranchName);
+    void OnResetBranch(const FString &BranchName);
 
     // Stash operations
-    void OnPopStash(const FString& StashRef);
-    void OnDropStash(const FString& StashRef);
+    void OnPopStash(const FString &StashRef);
+    void OnDropStash(const FString &StashRef);
 
     // Sub-components
     TSharedPtr<class SCustomGitTopActionsBar> TopActionsBar;

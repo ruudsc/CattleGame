@@ -45,6 +45,25 @@ FString FCustomGitOperations::GetRepositoryRoot()
 
 bool FCustomGitOperations::RunGitCommand(const FString &Command, const TArray<FString> &Parameters, const TArray<FString> &Files, TArray<FString> &OutResults, TArray<FString> &OutErrors)
 {
+    auto QuoteArg = [](const FString& Arg) -> FString
+    {
+        const FString Trimmed = Arg.TrimStartAndEnd();
+        if (Trimmed.Len() >= 2 && Trimmed.StartsWith(TEXT("\"")) && Trimmed.EndsWith(TEXT("\"")))
+        {
+            return Trimmed;
+        }
+
+        const bool bNeedsQuoting = Trimmed.Contains(TEXT(" ")) || Trimmed.Contains(TEXT("\t")) || Trimmed.Contains(TEXT("\n")) || Trimmed.Contains(TEXT("\r"));
+        if (!bNeedsQuoting && !Trimmed.Contains(TEXT("\"")))
+        {
+            return Trimmed;
+        }
+
+        FString Escaped = Trimmed;
+        Escaped.ReplaceInline(TEXT("\""), TEXT("\\\""));
+        return FString::Printf(TEXT("\"%s\""), *Escaped);
+    };
+
     FString GitBinary = TEXT("git"); // Should be configurable
     FString RepoRoot = GetRepositoryRoot();
 
@@ -53,7 +72,7 @@ bool FCustomGitOperations::RunGitCommand(const FString &Command, const TArray<FS
     for (const FString &Param : Parameters)
     {
         DisplayCommand += TEXT(" ");
-        DisplayCommand += Param;
+        DisplayCommand += QuoteArg(Param);
     }
     for (const FString &File : Files)
     {
@@ -69,7 +88,7 @@ bool FCustomGitOperations::RunGitCommand(const FString &Command, const TArray<FS
     for (const FString &Param : Parameters)
     {
         CommandLine += TEXT(" ");
-        CommandLine += Param;
+        CommandLine += QuoteArg(Param);
     }
 
     for (const FString &File : Files)
@@ -91,6 +110,15 @@ bool FCustomGitOperations::RunGitCommand(const FString &Command, const TArray<FS
     if (!StdErr.IsEmpty())
     {
         StdErr.ParseIntoArrayLines(OutErrors);
+    }
+
+    if (ReturnCode != 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CustomGit: git command failed (code %d): %s"), ReturnCode, *DisplayCommand);
+        if (!StdErr.IsEmpty())
+        {
+            UE_LOG(LogTemp, Warning, TEXT("CustomGit: git stderr: %s"), *StdErr);
+        }
     }
 
     return ReturnCode == 0;
