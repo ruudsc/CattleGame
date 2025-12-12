@@ -2,6 +2,7 @@
 
 #include "CattleAnimal.h"
 #include "CattleAnimalMovementComponent.h"
+#include "AI/CattleAIController.h"
 #include "CattleGame/Weapons/Lasso/LassoableComponent.h"
 #include "CattleGame/AbilitySystem/CattleAbilitySystemComponent.h"
 #include "CattleGame/AbilitySystem/AnimalAttributeSet.h"
@@ -31,6 +32,7 @@ ACattleAnimal::ACattleAnimal(const FObjectInitializer &ObjectInitializer)
 	LassoableComponent->AttachSocketName = LassoAttachSocket;
 
 	// Default AI settings
+	AIControllerClass = ACattleAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 }
 

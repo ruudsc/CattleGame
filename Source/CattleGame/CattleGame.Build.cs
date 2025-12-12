@@ -15,6 +15,7 @@ public class CattleGame : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"AIModule",
+			"NavigationSystem",
 			"GameplayAbilities",
 			"GameplayTags",
 			"GameplayTasks",
