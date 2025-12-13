@@ -17,9 +17,8 @@
 // FGitFileWatcher Implementation - Background thread for monitoring git changes
 // ============================================================================
 
-FGitFileWatcher::FGitFileWatcher(SCustomGitWindow* InParent)
-    : Parent(InParent)
-    , bKeepRunning(true)
+FGitFileWatcher::FGitFileWatcher(SCustomGitWindow *InParent)
+    : Parent(InParent), bKeepRunning(true)
 {
     // Get the repository root to locate .git folder
     FString RepoRoot = FCustomGitOperations::GetRepositoryRoot();
@@ -28,9 +27,9 @@ FGitFileWatcher::FGitFileWatcher(SCustomGitWindow* InParent)
         GitIndexPath = FPaths::Combine(RepoRoot, TEXT(".git/index"));
         GitRefsPath = FPaths::Combine(RepoRoot, TEXT(".git/refs/heads"));
         GitHeadPath = FPaths::Combine(RepoRoot, TEXT(".git/HEAD"));
-        
+
         // Initialize last modification times
-        IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+        IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
         if (PlatformFile.FileExists(*GitIndexPath))
         {
             LastIndexModTime = PlatformFile.GetTimeStamp(*GitIndexPath);
@@ -45,27 +44,27 @@ FGitFileWatcher::FGitFileWatcher(SCustomGitWindow* InParent)
             LastHeadModTime = PlatformFile.GetTimeStamp(*GitHeadPath);
         }
     }
-    
+
     UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: Initialized. Watching index: %s"), *GitIndexPath);
 }
 
 uint32 FGitFileWatcher::Run()
 {
-    IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-    
+    IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
     while (bKeepRunning)
     {
         // Sleep for 500ms between checks
         FPlatformProcess::Sleep(0.5f);
-        
+
         if (!bKeepRunning)
         {
             break;
         }
-        
+
         bool bIndexChanged = false;
         bool bRefsChanged = false;
-        
+
         // Check .git/index modification time (file status changes)
         if (!GitIndexPath.IsEmpty() && PlatformFile.FileExists(*GitIndexPath))
         {
@@ -77,7 +76,7 @@ uint32 FGitFileWatcher::Run()
                 UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: Index changed"));
             }
         }
-        
+
         // Check .git/HEAD modification time (branch changes)
         if (!GitHeadPath.IsEmpty() && PlatformFile.FileExists(*GitHeadPath))
         {
@@ -89,31 +88,29 @@ uint32 FGitFileWatcher::Run()
                 UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: HEAD changed"));
             }
         }
-        
+
         // Trigger callbacks on game thread
         if (bIndexChanged && Parent)
         {
             AsyncTask(ENamedThreads::GameThread, [this]()
-            {
+                      {
                 if (Parent)
                 {
                     Parent->OnGitIndexChanged();
-                }
-            });
+                } });
         }
-        
+
         if (bRefsChanged && Parent)
         {
             AsyncTask(ENamedThreads::GameThread, [this]()
-            {
+                      {
                 if (Parent)
                 {
                     Parent->OnGitRefsChanged();
-                }
-            });
+                } });
         }
     }
-    
+
     UE_LOG(LogTemp, Log, TEXT("FGitFileWatcher: Thread exiting"));
     return 0;
 }
@@ -208,7 +205,9 @@ void SCustomGitWindow::Construct(const FArguments &InArgs)
                                             .OnPopStash_Lambda([this](const FString &StashRef)
                                                                { OnPopStash(StashRef); })
                                             .OnDropStash_Lambda([this](const FString &StashRef)
-                                                                { OnDropStash(StashRef); })]
+                                                                { OnDropStash(StashRef); })
+                                            .OnClearCommandHistory_Lambda([this]()
+                                                                          { OnClearCommandHistory(); })]
 
                              + SVerticalBox::Slot()
                                    .AutoHeight()
@@ -283,20 +282,20 @@ SCustomGitWindow::~SCustomGitWindow()
     {
         FileWatcher->Stop();
     }
-    
+
     if (FileWatcherThread)
     {
         FileWatcherThread->WaitForCompletion();
         delete FileWatcherThread;
         FileWatcherThread = nullptr;
     }
-    
+
     // Clear any pending debounce timer
     if (GEditor)
     {
         GEditor->GetTimerManager()->ClearTimer(DebounceTimerHandle);
     }
-    
+
     UE_LOG(LogTemp, Log, TEXT("SCustomGitWindow: Destroyed, file watcher stopped"));
 }
 
@@ -318,7 +317,7 @@ void SCustomGitWindow::ScheduleDebouncedRefresh(EGitRefreshType RefreshType)
 {
     // Accumulate refresh types
     PendingRefreshType |= RefreshType;
-    
+
     // Reset the debounce timer
     if (GEditor)
     {
@@ -327,8 +326,7 @@ void SCustomGitWindow::ScheduleDebouncedRefresh(EGitRefreshType RefreshType)
             DebounceTimerHandle,
             FTimerDelegate::CreateSP(this, &SCustomGitWindow::OnDebouncedRefresh),
             DEBOUNCE_DELAY,
-            false
-        );
+            false);
     }
 }
 
@@ -336,20 +334,20 @@ void SCustomGitWindow::OnDebouncedRefresh()
 {
     EGitRefreshType TypeToRefresh = PendingRefreshType;
     PendingRefreshType = EGitRefreshType::None;
-    
+
     UE_LOG(LogTemp, Log, TEXT("SCustomGitWindow: OnDebouncedRefresh executing (type flags: %d)"), (uint8)TypeToRefresh);
-    
+
     if (EnumHasAnyFlags(TypeToRefresh, EGitRefreshType::Status))
     {
         RefreshStatusOnly();
     }
-    
+
     if (EnumHasAnyFlags(TypeToRefresh, EGitRefreshType::Branches))
     {
         UpdateBranchList();
         UpdateCommitHistory();
     }
-    
+
     if (EnumHasAnyFlags(TypeToRefresh, EGitRefreshType::Locks))
     {
         // Lock changes are handled in RefreshStatusOnly via GetLocksWithOwnership
@@ -364,7 +362,7 @@ void SCustomGitWindow::RefreshStatusOnly()
     LocalFileList.Empty();
     StagedFileList.Empty();
     LockedFileList.Empty();
-    
+
     // Invalidate lock cache since external changes may have occurred
     FCustomGitOperations::InvalidateLockCache();
 
@@ -445,6 +443,9 @@ void SCustomGitWindow::RefreshStatus()
     StagedFileList.Empty();
     LockedFileList.Empty();
     HistoryFileList.Empty();
+
+    // Force cache invalidation before refresh
+    FCustomGitOperations::InvalidateLockCache();
 
     // 1. Get Status
     TMap<FString, FString> StatusMap;
@@ -700,7 +701,32 @@ void SCustomGitWindow::OnSyncClicked()
 {
     TArray<FString> Results, Errors;
 
-    // Pull first
+    // Before pulling, get the files that will change and unload their packages
+    // This prevents "unable to unlink" errors during git pull
+    FCustomGitOperations::RunGitCommand(TEXT("fetch"), {TEXT("origin")}, {}, Results, Errors);
+
+    Results.Empty();
+    Errors.Empty();
+    FCustomGitOperations::RunGitCommand(TEXT("diff"), {TEXT("--name-only"), TEXT("HEAD..@{u}")}, {}, Results, Errors);
+
+    // Unload packages for files that will be changed by pull
+    if (Results.Num() > 0)
+    {
+        TArray<FString> FilesToUnload;
+        for (const FString &File : Results)
+        {
+            FString TrimmedFile = File.TrimStartAndEnd();
+            if (!TrimmedFile.IsEmpty())
+            {
+                FilesToUnload.Add(TrimmedFile);
+            }
+        }
+        FCustomGitOperations::UnloadPackagesForFiles(FilesToUnload);
+    }
+
+    // Pull
+    Results.Empty();
+    Errors.Empty();
     FCustomGitOperations::RunGitCommand(TEXT("pull"), {}, {}, Results, Errors);
 
     // Then push
@@ -735,10 +761,30 @@ void SCustomGitWindow::OnResetClicked()
 
         FString CurrentBranch = Results.Num() > 0 ? Results[0].TrimStartAndEnd() : TEXT("HEAD");
 
-        // Reset hard to origin/branch
+        // Get files that will be changed by reset
         Results.Empty();
         Errors.Empty();
         FString OriginBranch = FString::Printf(TEXT("origin/%s"), *CurrentBranch);
+        FCustomGitOperations::RunGitCommand(TEXT("diff"), {TEXT("--name-only"), TEXT("HEAD..") + OriginBranch}, {}, Results, Errors);
+
+        // Unload packages for files that will be changed by reset
+        if (Results.Num() > 0)
+        {
+            TArray<FString> FilesToUnload;
+            for (const FString &File : Results)
+            {
+                FString TrimmedFile = File.TrimStartAndEnd();
+                if (!TrimmedFile.IsEmpty())
+                {
+                    FilesToUnload.Add(TrimmedFile);
+                }
+            }
+            FCustomGitOperations::UnloadPackagesForFiles(FilesToUnload);
+        }
+
+        // Reset hard to origin/branch
+        Results.Empty();
+        Errors.Empty();
         FCustomGitOperations::RunGitCommand(TEXT("reset"), {TEXT("--hard"), OriginBranch}, {}, Results, Errors);
 
         RefreshStatus();
@@ -782,16 +828,83 @@ void SCustomGitWindow::OnLockFiles(const TArray<FString> &Files)
 
 void SCustomGitWindow::OnUnlockFiles(const TArray<FString> &Files)
 {
+    // Unload packages first to release file handles
+    FCustomGitOperations::UnloadPackagesForFiles(Files);
+
+    int32 SuccessCount = 0;
+    int32 FailCount = 0;
+    TArray<FString> Errors;
+    TArray<FString> FilesNeedingForce;
+
+    // First try without force
     for (const FString &File : Files)
     {
         FString Error;
-        FCustomGitOperations::UnlockFile(File, Error);
-        if (!Error.IsEmpty())
+        if (FCustomGitOperations::UnlockFile(File, Error, false))
         {
+            SuccessCount++;
+        }
+        else if (Error.Contains(TEXT("uncommitted changes")))
+        {
+            FilesNeedingForce.Add(File);
+        }
+        else
+        {
+            FailCount++;
+            FString FileName = FPaths::GetCleanFilename(File);
+            Errors.Add(FString::Printf(TEXT("%s: %s"), *FileName, *Error));
             UE_LOG(LogTemp, Warning, TEXT("CustomGit: Failed to unlock %s: %s"), *File, *Error);
         }
     }
+
+    // If some files have uncommitted changes, ask user if they want to force unlock
+    if (FilesNeedingForce.Num() > 0)
+    {
+        FString ForceMsg = FString::Printf(TEXT("%d file(s) have uncommitted changes and cannot be unlocked normally.\n\nDo you want to force unlock them? This is safe but you will need to lock them again before pushing changes."),
+                                           FilesNeedingForce.Num());
+
+        EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, FText::FromString(ForceMsg));
+
+        if (Result == EAppReturnType::Yes)
+        {
+            // Force unlock the files
+            for (const FString &File : FilesNeedingForce)
+            {
+                FString Error;
+                if (FCustomGitOperations::UnlockFile(File, Error, true))
+                {
+                    SuccessCount++;
+                }
+                else
+                {
+                    FailCount++;
+                    FString FileName = FPaths::GetCleanFilename(File);
+                    Errors.Add(FString::Printf(TEXT("%s: %s"), *FileName, *Error));
+                    UE_LOG(LogTemp, Warning, TEXT("CustomGit: Failed to force unlock %s: %s"), *File, *Error);
+                }
+            }
+        }
+        else
+        {
+            FailCount += FilesNeedingForce.Num();
+        }
+    }
+
+    // Show user feedback
+    if (FailCount > 0)
+    {
+        FString ErrorMsg = FString::Printf(TEXT("Unlocked %d file(s), failed %d%s"),
+                                           SuccessCount, FailCount, Errors.Num() > 0 ? *FString::Printf(TEXT(":\n\n%s"), *FString::Join(Errors, TEXT("\n"))) : TEXT(""));
+        FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(ErrorMsg));
+    }
+    else if (SuccessCount > 0)
+    {
+        UE_LOG(LogTemp, Log, TEXT("CustomGit: Successfully unlocked %d file(s)"), SuccessCount);
+    }
+
+    // Force refresh of locked files list
     RefreshStatus();
+    UpdateBranchList();
 }
 
 void SCustomGitWindow::OnDiscardFiles(const TArray<FString> &Files)
@@ -806,6 +919,9 @@ void SCustomGitWindow::OnDiscardFiles(const TArray<FString> &Files)
     TSet<FString> OurLocks;
     TMap<FString, FString> OtherLocks;
     FCustomGitOperations::GetLocksWithOwnership(OurLocks, OtherLocks);
+
+    // Unload packages first to release file handles before Git operations
+    FCustomGitOperations::UnloadPackagesForFiles(Files);
 
     for (const FString &File : Files)
     {
@@ -830,12 +946,22 @@ void SCustomGitWindow::OnDiscardFiles(const TArray<FString> &Files)
         }
         else
         {
-            // Tracked - checkout
-            FCustomGitOperations::RunGitCommand(TEXT("checkout"), {TEXT("--")}, {File}, Results, Errors);
+            // Tracked - first unstage if staged, then checkout
+            // Using "git reset HEAD <file>" to unstage, then "git checkout -- <file>" to revert
+            // Or simply use "git checkout HEAD -- <file>" to do both at once
+            FCustomGitOperations::RunGitCommand(TEXT("checkout"), {TEXT("HEAD"), TEXT("--")}, {File}, Results, Errors);
         }
     }
 
+    // Force cache invalidation to ensure fresh data
+    FCustomGitOperations::InvalidateLockCache();
+
+    // Small delay to let git index update (Windows file system timing)
+    FPlatformProcess::Sleep(0.1f);
+
+    // Refresh both status and branch info
     RefreshStatus();
+    UpdateBranchList();
 }
 
 void SCustomGitWindow::OnStashFiles(const TArray<FString> &Files)
@@ -937,6 +1063,12 @@ void SCustomGitWindow::OnDropStash(const FString &StashRef)
     TArray<FString> Results, Errors;
     FCustomGitOperations::RunGitCommand(TEXT("stash"), {TEXT("drop"), StashRef}, {}, Results, Errors);
     UpdateStashList();
+}
+
+void SCustomGitWindow::OnClearCommandHistory()
+{
+    FCustomGitOperations::ClearCommandHistory();
+    UpdateCommandHistory();
 }
 
 #undef LOCTEXT_NAMESPACE

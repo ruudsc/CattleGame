@@ -119,6 +119,10 @@ uint32 FCustomGitSourceControlCommand::Run()
     {
         // Perforce-style Revert: Unlock the file, discard changes, make read-only
         bool bAllSuccess = true;
+
+        // First, unload packages to release file handles
+        FCustomGitOperations::UnloadPackagesForFiles(Files);
+
         for (const FString &File : Files)
         {
             FString Error;

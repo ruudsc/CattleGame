@@ -13,7 +13,7 @@
 
 #define LOCTEXT_NAMESPACE "SCustomGitFileListPanel"
 
-void SCustomGitFileListPanel::Construct(const FArguments& InArgs)
+void SCustomGitFileListPanel::Construct(const FArguments &InArgs)
 {
     CurrentFileList = InArgs._FileList;
     CurrentViewMode = InArgs._ViewMode;
@@ -26,62 +26,49 @@ void SCustomGitFileListPanel::Construct(const FArguments& InArgs)
 
     ChildSlot
         [SAssignNew(ListView, SListView<TSharedPtr<FGitFileStatus>>)
-            .ListItemsSource((CurrentFileList) ? CurrentFileList : nullptr)
-            .SelectionMode(ESelectionMode::Multi)
-            .OnGenerateRow(this, &SCustomGitFileListPanel::OnGenerateRow)
-            .OnContextMenuOpening(this, &SCustomGitFileListPanel::OnOpenContextMenu)
-            .HeaderRow(
-                SAssignNew(HeaderRow, SHeaderRow)
-                + SHeaderRow::Column("Status")
-                    .DefaultLabel(LOCTEXT("StatusCol", "Status"))
-                    .FixedWidth(60)
-                + SHeaderRow::Column("File")
-                    .DefaultLabel(LOCTEXT("FileCol", "File"))
-                    .FillWidth(1.0f)
-                + SHeaderRow::Column("Date")
-                    .DefaultLabel(LOCTEXT("DateCol", "Last Modified"))
-                    .FixedWidth(120)
-            )
-        ];
+             .ListItemsSource((CurrentFileList) ? CurrentFileList : nullptr)
+             .SelectionMode(ESelectionMode::Multi)
+             .OnGenerateRow(this, &SCustomGitFileListPanel::OnGenerateRow)
+             .OnContextMenuOpening(this, &SCustomGitFileListPanel::OnOpenContextMenu)
+             .HeaderRow(
+                 SAssignNew(HeaderRow, SHeaderRow) + SHeaderRow::Column("Status").DefaultLabel(LOCTEXT("StatusCol", "Status")).FixedWidth(60) + SHeaderRow::Column("File").DefaultLabel(LOCTEXT("FileCol", "File")).FillWidth(1.0f) + SHeaderRow::Column("Date").DefaultLabel(LOCTEXT("DateCol", "Last Modified")).FixedWidth(120))];
 }
 
 TSharedRef<ITableRow> SCustomGitFileListPanel::OnGenerateRow(TSharedPtr<FGitFileStatus> InItem,
-    const TSharedRef<STableViewBase>& OwnerTable)
+                                                             const TSharedRef<STableViewBase> &OwnerTable)
 {
     return SNew(STableRow<TSharedPtr<FGitFileStatus>>, OwnerTable)
         .OnDragDetected(this, &SCustomGitFileListPanel::OnListDragDetected)
-        [SNew(SHorizontalBox)
+            [SNew(SHorizontalBox)
 
-            // Status column
-            + SHorizontalBox::Slot()
-                .AutoWidth()
-                .Padding(5, 0)
-                [SNew(SBox)
-                    .WidthOverride(60)
-                    [SNew(STextBlock)
-                        .Text(FText::FromString(InItem->Status))]]
+             // Status column
+             + SHorizontalBox::Slot()
+                   .AutoWidth()
+                   .Padding(5, 0)
+                       [SNew(SBox)
+                            .WidthOverride(60)
+                                [SNew(STextBlock)
+                                     .Text(FText::FromString(InItem->Status))]]
 
-            // Filename column
-            + SHorizontalBox::Slot()
-                .FillWidth(1.0f)
-                .Padding(5, 0)
-                [SNew(STextBlock)
-                    .Text(FText::FromString(InItem->Filename))]
+             // Filename column
+             + SHorizontalBox::Slot()
+                   .FillWidth(1.0f)
+                   .Padding(5, 0)
+                       [SNew(STextBlock)
+                            .Text(FText::FromString(InItem->Filename))]
 
-            // Date column
-            + SHorizontalBox::Slot()
-                .AutoWidth()
-                .Padding(5, 0)
-                [SNew(SBox)
-                    .WidthOverride(120)
-                    [SNew(STextBlock)
-                        .Text(FText::FromString(InItem->ModificationTime.ToHttpDate()))]
-                ]
-        ];
+             // Date column
+             + SHorizontalBox::Slot()
+                   .AutoWidth()
+                   .Padding(5, 0)
+                       [SNew(SBox)
+                            .WidthOverride(120)
+                                [SNew(STextBlock)
+                                     .Text(FText::FromString(InItem->ModificationTime.ToHttpDate()))]]];
 }
 
-FReply SCustomGitFileListPanel::OnListDragDetected(const FGeometry& MyGeometry,
-    const FPointerEvent& MouseEvent)
+FReply SCustomGitFileListPanel::OnListDragDetected(const FGeometry &MyGeometry,
+                                                   const FPointerEvent &MouseEvent)
 {
     // Allow dragging from both Local Changes and Staged Changes views
     if (CurrentViewMode != EGitViewMode::LocalChanges && CurrentViewMode != EGitViewMode::StagedChanges)
@@ -93,7 +80,7 @@ FReply SCustomGitFileListPanel::OnListDragDetected(const FGeometry& MyGeometry,
     if (ListView.IsValid())
     {
         TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
-        for (const auto& Item : SelectedItems)
+        for (const auto &Item : SelectedItems)
         {
             SelectedFiles.Add(Item->Filename);
         }
@@ -131,11 +118,58 @@ TSharedPtr<SWidget> SCustomGitFileListPanel::OnOpenContextMenu()
             FSlateIcon(),
             FUIAction(FExecuteAction::CreateSP(this, &SCustomGitFileListPanel::OnContextDiscardChanges)));
 
-        MenuBuilder.AddMenuEntry(
-            LOCTEXT("LockSelected", "Lock Selected Files"),
-            LOCTEXT("LockSelectedTooltip", "Lock selected files with Git LFS"),
-            FSlateIcon(),
-            FUIAction(FExecuteAction::CreateSP(this, &SCustomGitFileListPanel::OnContextLockSelected)));
+        // Check if selected files are locked by us
+        bool bHasLockedFiles = false;
+        bool bHasUnlockedFiles = false;
+        if (ListView.IsValid())
+        {
+            TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
+            for (const auto &Item : SelectedItems)
+            {
+                if (Item->bIsLockedByUs)
+                {
+                    bHasLockedFiles = true;
+                }
+                else
+                {
+                    bHasUnlockedFiles = true;
+                }
+            }
+        }
+
+        // Show Lock or Unlock option based on selection
+        if (bHasLockedFiles && !bHasUnlockedFiles)
+        {
+            // All selected files are locked - show unlock option
+            MenuBuilder.AddMenuEntry(
+                LOCTEXT("UnlockSelected", "Unlock Selected Files"),
+                LOCTEXT("UnlockSelectedTooltip", "Release LFS locks on selected files"),
+                FSlateIcon(),
+                FUIAction(FExecuteAction::CreateSP(this, &SCustomGitFileListPanel::OnContextUnlockSelected)));
+        }
+        else if (bHasUnlockedFiles && !bHasLockedFiles)
+        {
+            // All selected files are unlocked - show lock option
+            MenuBuilder.AddMenuEntry(
+                LOCTEXT("LockSelected", "Lock Selected Files"),
+                LOCTEXT("LockSelectedTooltip", "Lock selected files with Git LFS"),
+                FSlateIcon(),
+                FUIAction(FExecuteAction::CreateSP(this, &SCustomGitFileListPanel::OnContextLockSelected)));
+        }
+        else if (bHasLockedFiles && bHasUnlockedFiles)
+        {
+            // Mixed selection - show both options
+            MenuBuilder.AddMenuEntry(
+                LOCTEXT("LockSelected", "Lock Selected Files"),
+                LOCTEXT("LockSelectedTooltip", "Lock unlocked files in selection"),
+                FSlateIcon(),
+                FUIAction(FExecuteAction::CreateSP(this, &SCustomGitFileListPanel::OnContextLockSelected)));
+            MenuBuilder.AddMenuEntry(
+                LOCTEXT("UnlockSelected", "Unlock Selected Files"),
+                LOCTEXT("UnlockSelectedTooltip", "Release locks on locked files in selection"),
+                FSlateIcon(),
+                FUIAction(FExecuteAction::CreateSP(this, &SCustomGitFileListPanel::OnContextUnlockSelected)));
+        }
     }
     else if (CurrentViewMode == EGitViewMode::StagedChanges)
     {
@@ -173,7 +207,7 @@ void SCustomGitFileListPanel::OnContextStageSelected()
     if (ListView.IsValid())
     {
         TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
-        for (const auto& Item : SelectedItems)
+        for (const auto &Item : SelectedItems)
         {
             FilesToStage.Add(Item->Filename);
         }
@@ -191,7 +225,7 @@ void SCustomGitFileListPanel::OnContextUnstageSelected()
     if (ListView.IsValid())
     {
         TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
-        for (const auto& Item : SelectedItems)
+        for (const auto &Item : SelectedItems)
         {
             FilesToUnstage.Add(Item->Filename);
         }
@@ -209,7 +243,7 @@ void SCustomGitFileListPanel::OnContextLockSelected()
     if (ListView.IsValid())
     {
         TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
-        for (const auto& Item : SelectedItems)
+        for (const auto &Item : SelectedItems)
         {
             FilesToLock.Add(Item->Filename);
         }
@@ -227,7 +261,7 @@ void SCustomGitFileListPanel::OnContextUnlockSelected()
     if (ListView.IsValid())
     {
         TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
-        for (const auto& Item : SelectedItems)
+        for (const auto &Item : SelectedItems)
         {
             FilesToUnlock.Add(Item->Filename);
         }
@@ -250,7 +284,7 @@ void SCustomGitFileListPanel::OnContextDiscardChanges()
     TArray<FString> TrackedFiles;
     TArray<FString> UntrackedFiles;
 
-    for (const auto& Item : SelectedItems)
+    for (const auto &Item : SelectedItems)
     {
         // Check if it's an untracked file
         if (Item->Status == TEXT("Untracked") || Item->Status.Contains(TEXT("??")))
@@ -271,17 +305,17 @@ void SCustomGitFileListPanel::OnContextDiscardChanges()
         if (UntrackedFiles.Num() > 0 && TrackedFiles.Num() > 0)
         {
             MessageText = FString::Printf(TEXT("Are you sure you want to discard changes to %d file(s)?\n\n%d tracked file(s) will be reverted.\n%d untracked file(s) will be DELETED.\n\nThis cannot be undone."),
-                TotalFiles, TrackedFiles.Num(), UntrackedFiles.Num());
+                                          TotalFiles, TrackedFiles.Num(), UntrackedFiles.Num());
         }
         else if (UntrackedFiles.Num() > 0)
         {
             MessageText = FString::Printf(TEXT("Are you sure you want to DELETE %d untracked file(s)?\n\nThis cannot be undone."),
-                UntrackedFiles.Num());
+                                          UntrackedFiles.Num());
         }
         else
         {
             MessageText = FString::Printf(TEXT("Are you sure you want to discard changes to %d file(s)?\n\nThis cannot be undone."),
-                TrackedFiles.Num());
+                                          TrackedFiles.Num());
         }
 
         EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, FText::FromString(MessageText));
@@ -305,7 +339,7 @@ void SCustomGitFileListPanel::OnContextStashSelected()
     if (ListView.IsValid())
     {
         TArray<TSharedPtr<FGitFileStatus>> SelectedItems = ListView->GetSelectedItems();
-        for (const auto& Item : SelectedItems)
+        for (const auto &Item : SelectedItems)
         {
             FilesToStash.Add(Item->Filename);
         }
@@ -325,7 +359,7 @@ void SCustomGitFileListPanel::RefreshList()
     }
 }
 
-void SCustomGitFileListPanel::SetFileList(TArray<TSharedPtr<FGitFileStatus>>* InFileList)
+void SCustomGitFileListPanel::SetFileList(TArray<TSharedPtr<FGitFileStatus>> *InFileList)
 {
     CurrentFileList = InFileList;
     if (ListView.IsValid())

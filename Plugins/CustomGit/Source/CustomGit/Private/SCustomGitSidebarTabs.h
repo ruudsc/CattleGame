@@ -12,7 +12,7 @@ enum class ESidebarTab
 };
 
 // Delegate for stash operations
-DECLARE_DELEGATE_OneParam(FOnStashAction, const FString& /* StashRef */);
+DECLARE_DELEGATE_OneParam(FOnStashAction, const FString & /* StashRef */);
 
 /**
  * SCustomGitSidebarTabs - Sidebar tabbed panel for Stashes, Commit History, Command History
@@ -22,16 +22,18 @@ class SCustomGitSidebarTabs : public SCompoundWidget
 {
 public:
     SLATE_BEGIN_ARGS(SCustomGitSidebarTabs)
-        {}
-        SLATE_ARGUMENT(TArray<TSharedPtr<FString>>*, StashList)
-        SLATE_ARGUMENT(TArray<TSharedPtr<FString>>*, CommitHistoryList)
-        SLATE_ARGUMENT(TArray<TSharedPtr<FString>>*, CommandHistoryList)
-        SLATE_EVENT(FOnStashAction, OnPopStash)
-        SLATE_EVENT(FOnStashAction, OnDropStash)
-        SLATE_EVENT(FSimpleDelegate, OnRefreshRequested)
+    {
+    }
+    SLATE_ARGUMENT(TArray<TSharedPtr<FString>> *, StashList)
+    SLATE_ARGUMENT(TArray<TSharedPtr<FString>> *, CommitHistoryList)
+    SLATE_ARGUMENT(TArray<TSharedPtr<FString>> *, CommandHistoryList)
+    SLATE_EVENT(FOnStashAction, OnPopStash)
+    SLATE_EVENT(FOnStashAction, OnDropStash)
+    SLATE_EVENT(FSimpleDelegate, OnRefreshRequested)
+    SLATE_EVENT(FSimpleDelegate, OnClearCommandHistory)
     SLATE_END_ARGS()
 
-    void Construct(const FArguments& InArgs);
+    void Construct(const FArguments &InArgs);
 
     // Update lists
     void RefreshStashes();
@@ -48,19 +50,22 @@ private:
     FReply OnTabCommandsClicked();
 
     TSharedRef<ITableRow> OnGenerateSidebarRow(TSharedPtr<FString> InItem,
-        const TSharedRef<STableViewBase>& OwnerTable);
+                                               const TSharedRef<STableViewBase> &OwnerTable);
 
     // Data
-    TArray<TSharedPtr<FString>>* StashList = nullptr;
-    TArray<TSharedPtr<FString>>* CommitHistoryList = nullptr;
-    TArray<TSharedPtr<FString>>* CommandHistoryList = nullptr;
+    TArray<TSharedPtr<FString>> *StashList = nullptr;
+    TArray<TSharedPtr<FString>> *CommitHistoryList = nullptr;
+    TArray<TSharedPtr<FString>> *CommandHistoryList = nullptr;
     ESidebarTab CurrentSidebarTab = ESidebarTab::Stashes;
 
     // Delegates
     FOnStashAction OnPopStashDelegate;
     FOnStashAction OnDropStashDelegate;
     FSimpleDelegate OnRefreshDelegate;
+    FSimpleDelegate OnClearCommandHistoryDelegate;
 
     // Widgets
     TSharedPtr<SListView<TSharedPtr<FString>>> SidebarListView;
+    TSharedPtr<class SMultiLineEditableTextBox> CommandHistoryTextBox;
+    TSharedPtr<class SWidgetSwitcher> ContentSwitcher;
 };

@@ -2,6 +2,9 @@
 #include "Misc/Paths.h"
 #include "HAL/PlatformProcess.h"
 #include "HAL/FileManager.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectGlobals.h"
+#include "Misc/PackageName.h"
 
 TArray<FString> FCustomGitOperations::CommandHistory;
 FString FCustomGitOperations::RepositoryRoot;
@@ -225,11 +228,16 @@ bool FCustomGitOperations::LockFile(const FString &File, FString &OutError)
     return false;
 }
 
-bool FCustomGitOperations::UnlockFile(const FString &File, FString &OutError)
+bool FCustomGitOperations::UnlockFile(const FString &File, FString &OutError, bool bForce)
 {
     TArray<FString> Results, Errors;
-    // git lfs unlock "file"
-    if (RunGitLFSCommand(TEXT("unlock"), TArray<FString>(), {File}, Results, Errors))
+    TArray<FString> Params;
+    if (bForce)
+    {
+        Params.Add(TEXT("--force"));
+    }
+    // git lfs unlock [--force] "file"
+    if (RunGitLFSCommand(TEXT("unlock"), Params, {File}, Results, Errors))
     {
         InvalidateLockCache(); // Cache is now stale
         return true;
@@ -510,6 +518,32 @@ bool FCustomGitOperations::Push(FString &OutError)
 bool FCustomGitOperations::Pull(FString &OutError)
 {
     TArray<FString> Results, Errors;
+
+    // Before pulling, fetch and check what files will be changed
+    RunGitCommand(TEXT("fetch"), {TEXT("origin")}, TArray<FString>(), Results, Errors);
+
+    Results.Empty();
+    Errors.Empty();
+    RunGitCommand(TEXT("diff"), {TEXT("--name-only"), TEXT("HEAD..@{u}")}, TArray<FString>(), Results, Errors);
+
+    // Unload packages for files that will be changed by pull
+    if (Results.Num() > 0)
+    {
+        TArray<FString> FilesToUnload;
+        for (const FString &File : Results)
+        {
+            FString TrimmedFile = File.TrimStartAndEnd();
+            if (!TrimmedFile.IsEmpty())
+            {
+                FilesToUnload.Add(TrimmedFile);
+            }
+        }
+        UnloadPackagesForFiles(FilesToUnload);
+    }
+
+    // Now perform the pull
+    Results.Empty();
+    Errors.Empty();
     if (RunGitCommand(TEXT("pull"), TArray<FString>(), TArray<FString>(), Results, Errors))
     {
         return true;
@@ -689,6 +723,11 @@ void FCustomGitOperations::AddToHistory(const FString &Command)
 const TArray<FString> &FCustomGitOperations::GetCommandHistory()
 {
     return CommandHistory;
+}
+
+void FCustomGitOperations::ClearCommandHistory()
+{
+    CommandHistory.Empty();
 }
 
 bool FCustomGitOperations::IsBinaryAsset(const FString &File)
@@ -931,4 +970,71 @@ bool FCustomGitOperations::IsLockedByCurrentUser(const FString &File, FString *O
     }
 
     return false;
+}
+
+bool FCustomGitOperations::UnloadPackagesForFiles(const TArray<FString> &Files)
+{
+    // This function unloads asset packages from memory to release file handles
+    // so that Git operations can modify/replace the files on disk
+
+    TArray<UPackage *> PackagesToUnload;
+    FString RepoRoot = GetRepositoryRoot();
+
+    for (const FString &File : Files)
+    {
+        // Skip non-asset files
+        FString Extension = FPaths::GetExtension(File).ToLower();
+        if (Extension != TEXT("uasset") && Extension != TEXT("umap"))
+        {
+            continue;
+        }
+
+        // Convert file path to package name
+        // e.g., "Content/Characters/Animals/Bison/BP_Bison.uasset" -> "/Game/Characters/Animals/Bison/BP_Bison"
+        FString FullPath = FPaths::Combine(RepoRoot, File);
+        FPaths::NormalizeFilename(FullPath);
+
+        // Extract the relative path from Content/
+        FString PackageName;
+        if (File.StartsWith(TEXT("Content/")))
+        {
+            // Remove "Content/" prefix and file extension
+            PackageName = TEXT("/Game/") + File.Mid(8);                // Skip "Content/"
+            PackageName = FPaths::SetExtension(PackageName, TEXT("")); // Remove extension
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("CustomGit: Cannot determine package name for file: %s"), *File);
+            continue;
+        }
+
+        // Find the package if it's loaded
+        UPackage *Package = FindPackage(nullptr, *PackageName);
+        if (Package)
+        {
+            PackagesToUnload.Add(Package);
+            UE_LOG(LogTemp, Log, TEXT("CustomGit: Marking package for unload: %s"), *PackageName);
+        }
+    }
+
+    if (PackagesToUnload.Num() == 0)
+    {
+        // No packages to unload - files aren't loaded
+        return true;
+    }
+
+    // Reset loaders for these packages to release file handles
+    for (UPackage *Package : PackagesToUnload)
+    {
+        ResetLoaders(Package);
+    }
+
+    // Collect garbage to actually free the memory and file handles
+    CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
+    // Flush async loading to ensure all file handles are released
+    FlushAsyncLoading();
+
+    UE_LOG(LogTemp, Log, TEXT("CustomGit: Unloaded %d packages to release file handles"), PackagesToUnload.Num());
+    return true;
 }
