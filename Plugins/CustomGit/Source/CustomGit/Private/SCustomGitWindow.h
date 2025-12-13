@@ -39,7 +39,7 @@ class SCustomGitWindow;
 class FGitFileWatcher : public FRunnable
 {
 public:
-    FGitFileWatcher(SCustomGitWindow* InParent);
+    FGitFileWatcher(SCustomGitWindow *InParent);
     virtual ~FGitFileWatcher() {}
 
     // FRunnable interface
@@ -49,7 +49,7 @@ public:
     virtual void Exit() override {}
 
 private:
-    SCustomGitWindow* Parent;
+    SCustomGitWindow *Parent;
     FString GitIndexPath;
     FString GitRefsPath;
     FString GitHeadPath;
@@ -63,9 +63,9 @@ private:
 enum class EGitRefreshType : uint8
 {
     None = 0,
-    Status = 1 << 0,       // File status changed
-    Branches = 1 << 1,     // Branch refs changed
-    Locks = 1 << 2,        // Lock status changed
+    Status = 1 << 0,   // File status changed
+    Branches = 1 << 1, // Branch refs changed
+    Locks = 1 << 2,    // Lock status changed
     All = 0xFF
 };
 ENUM_CLASS_FLAGS(EGitRefreshType);
@@ -118,7 +118,7 @@ private:
 
     // Auto-refresh file watcher (Approach 2)
     TUniquePtr<FGitFileWatcher> FileWatcher;
-    FRunnableThread* FileWatcherThread = nullptr;
+    FRunnableThread *FileWatcherThread = nullptr;
 
     // Debounce timer for auto-refresh
     FTimerHandle DebounceTimerHandle;
@@ -161,6 +161,9 @@ private:
     // Stash operations
     void OnPopStash(const FString &StashRef);
     void OnDropStash(const FString &StashRef);
+
+    // Command history operations
+    void OnClearCommandHistory();
 
     // Sub-components
     TSharedPtr<class SCustomGitTopActionsBar> TopActionsBar;

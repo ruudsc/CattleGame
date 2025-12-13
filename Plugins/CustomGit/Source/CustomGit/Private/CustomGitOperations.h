@@ -47,8 +47,11 @@ public:
 
     /**
      * Unlock a file using LFS
+     * @param File - The file to unlock
+     * @param OutError - Error message if unlock fails
+     * @param bForce - If true, force unlock even with uncommitted changes
      */
-    static bool UnlockFile(const FString &File, FString &OutError);
+    static bool UnlockFile(const FString &File, FString &OutError, bool bForce = false);
 
     /**
      * Get all LFS locks
@@ -128,6 +131,11 @@ public:
     static const TArray<FString> &GetCommandHistory();
 
     /**
+     * Clear command history
+     */
+    static void ClearCommandHistory();
+
+    /**
      * Get the repository root path
      */
     static FString GetRepositoryRoot();
@@ -181,6 +189,13 @@ public:
      * Invalidate the lock cache (call after lock/unlock operations)
      */
     static void InvalidateLockCache();
+
+    /**
+     * Unload asset packages from memory to release file handles
+     * @param Files - List of asset file paths (relative to repo root)
+     * @return true if packages were unloaded successfully
+     */
+    static bool UnloadPackagesForFiles(const TArray<FString> &Files);
 
 private:
     static TArray<FString> CommandHistory;
