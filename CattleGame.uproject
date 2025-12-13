@@ -24,6 +24,10 @@
 			"TargetAllowList": [
 				"Editor"
 			]
+		},
+		{
+			"Name": "PCG",
+			"Enabled": true
 		}
 	]
 }

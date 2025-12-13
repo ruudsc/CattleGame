@@ -113,6 +113,9 @@ void UGA_TrumpetLure::PlayLure()
 
 	UE_LOG(LogGASDebug, Warning, TEXT("TrumpetLure Ability: PlayLure - Starting lure effect"));
 
+	// Start the trumpet's lure effect on cattle
+	TrumpetWeapon->PlayLure();
+
 	// Add playing state tag and trigger GameplayCue for VFX/Audio
 	if (UAbilitySystemComponent *ASC = CurrentActorInfo->AbilitySystemComponent.Get())
 	{

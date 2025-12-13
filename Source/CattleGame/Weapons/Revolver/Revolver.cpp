@@ -1,5 +1,6 @@
 #include "Revolver.h"
 #include "CattleGame/Character/CattleCharacter.h"
+#include "CattleGame/Animals/CattleAnimal.h"
 #include "GameFramework/Character.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -8,6 +9,7 @@
 #include "Net/UnrealNetwork.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "Engine/OverlapResult.h"
 #include "CattleGame/AbilitySystem/CattleGameplayTags.h"
 #include "CattleGame/CattleGame.h"
 
@@ -202,6 +204,13 @@ void ARevolver::OnServerFire(const FVector &TraceStart, const FVector &TraceDir)
 	{
 		ApplyDamageToActor(HitResult.GetActor(), HitResult.ImpactPoint, FireDir);
 
+		// Apply fear to cattle if hit directly
+		if (ACattleAnimal *HitCattle = Cast<ACattleAnimal>(HitResult.GetActor()))
+		{
+			HitCattle->AddFear(FearOnHit);
+			UE_LOG(LogGASDebug, Warning, TEXT("Revolver::OnServerFire - Applied %.0f fear to %s"), FearOnHit, *HitCattle->GetName());
+		}
+
 		// Trigger impact GameplayCue via owner's ASC (ensures proper replication)
 		if (UAbilitySystemComponent *ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwnerCharacter))
 		{
@@ -226,6 +235,37 @@ void ARevolver::OnServerFire(const FVector &TraceStart, const FVector &TraceDir)
 				HitReactionParams.SourceObject = this;
 
 				TargetASC->ExecuteGameplayCue(CattleGameplayTags::GameplayCue_HitReaction, HitReactionParams);
+			}
+		}
+	}
+
+	// Apply area fear to nearby cattle from gunshot sound
+	if (GunshotFearRadius > 0.0f && GunshotFearAmount > 0.0f)
+	{
+		const FVector SoundOrigin = TraceStart;
+		TArray<FOverlapResult> OverlapResults;
+		FCollisionShape SphereShape = FCollisionShape::MakeSphere(GunshotFearRadius);
+
+		if (GetWorld()->OverlapMultiByChannel(
+				OverlapResults,
+				SoundOrigin,
+				FQuat::Identity,
+				ECC_Pawn,
+				SphereShape))
+		{
+			for (const FOverlapResult &Overlap : OverlapResults)
+			{
+				if (ACattleAnimal *Cattle = Cast<ACattleAnimal>(Overlap.GetActor()))
+				{
+					// Don't double-apply fear to the one we already hit
+					if (bHit && Overlap.GetActor() == HitResult.GetActor())
+					{
+						continue;
+					}
+
+					Cattle->AddFear(GunshotFearAmount);
+					UE_LOG(LogGASDebug, Verbose, TEXT("Revolver::OnServerFire - Gunshot fear %.0f to nearby %s"), GunshotFearAmount, *Cattle->GetName());
+				}
 			}
 		}
 	}

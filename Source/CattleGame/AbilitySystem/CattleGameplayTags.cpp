@@ -33,6 +33,28 @@ namespace CattleGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Weapon_Reloading, "State.Weapon.Reloading", "Tag indicating character is currently reloading");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Dead, "State.Dead", "Tag indicating character is dead");
 
+	// ===== Animal State Tags =====
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Animal_Idle, "State.Animal.Idle", "Animal is idle/standing");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Animal_Grazing, "State.Animal.Grazing", "Animal is grazing (eating, slow movement)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Animal_Walking, "State.Animal.Walking", "Animal is walking normally");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Animal_Panicked, "State.Animal.Panicked", "Animal is in panic state (high fear)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Animal_Fleeing, "State.Animal.Fleeing", "Animal is actively fleeing from threat");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Animal_Lured, "State.Animal.Lured", "Animal is being lured (trumpet, etc.)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(State_Animal_Lassoed, "State.Animal.Lassoed", "Animal is caught by lasso");
+
+	// ===== Animal Attribute Tags =====
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Attribute_Animal_Fear, "Attribute.Animal.Fear", "Animal fear level attribute");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Attribute_Animal_CalmLevel, "Attribute.Animal.CalmLevel", "Animal calm level attribute");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Attribute_Animal_HerdAffinity, "Attribute.Animal.HerdAffinity", "How strongly animal follows herd");
+
+	// ===== Animal Effect Tags =====
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Animal_Fear, "Effect.Animal.Fear", "Effect that adds fear to animal");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Animal_Calm, "Effect.Animal.Calm", "Effect that calms animal (reduces fear)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Animal_AreaGraze, "Effect.Animal.Area.Graze", "Effect from graze area");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Animal_AreaPanic, "Effect.Animal.Area.Panic", "Effect from panic area");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Animal_AreaAvoid, "Effect.Animal.Area.Avoid", "Effect from avoid area");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Effect_Animal_FlowGuide, "Effect.Animal.FlowGuide", "Effect from flow guide");
+
 	// Attribute Tags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Attribute_Health, "Attribute.Health", "Tag for health attribute");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Attribute_MovementSpeed, "Attribute.MovementSpeed", "Tag for movement speed attribute");
@@ -50,4 +72,8 @@ namespace CattleGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Lasso_Throw, "GameplayCue.Lasso.Throw", "GameplayCue for lasso throw VFX/Audio");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Dynamite_Throw, "GameplayCue.Dynamite.Throw", "GameplayCue for dynamite throw VFX/Audio");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Dynamite_Explode, "GameplayCue.Dynamite.Explode", "GameplayCue for dynamite explosion VFX/Audio");
+
+	// ===== Animal GameplayCue Tags =====
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Animal_Panic, "GameplayCue.Animal.Panic", "GameplayCue for animal panic VFX/Audio");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Animal_Calm, "GameplayCue.Animal.Calm", "GameplayCue for animal calming VFX/Audio");
 }

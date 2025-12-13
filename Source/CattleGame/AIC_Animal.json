@@ -1,65 +1,38 @@
 {
 	"metadata":
 	{
-		"blueprintName": "BP_Lasso",
-		"blueprintPath": "/Game/Characters/Player/Abilities/Lasso/BP_Lasso.BP_Lasso",
+		"blueprintName": "AIC_Animal",
+		"blueprintPath": "/Game/Characters/Animals/Shared/AIC_Animal.AIC_Animal",
 		"blueprintType": "Normal",
-		"parentClass": "/Script/CattleGame.Lasso",
-		"generatedClass": "BP_Lasso_C",
-		"engineVersion": "++UE5+Release-5.6-CL-44394996",
+		"parentClass": "/Script/CattleGame.CattleAIController",
+		"generatedClass": "AIC_Animal_C",
+		"engineVersion": "++UE5+Release-5.7-CL-48512491",
 		"serializerVersion": "2.0.0",
-		"exportTimestamp": "2025.12.06-22.56.45"
+		"exportTimestamp": "2025.12.12-23.44.48"
 	},
-	"variables": [
-		{
-			"varName": "Fired Projectile",
-			"varGuid": "A686CB31461CA36899157288E4AE5A82",
-			"varType": "object:/Script/CattleGame.LassoProjectile",
-			"category": "Default",
-			"defaultValue": "",
-			"bIsExposed": false,
-			"bIsReadOnly": false,
-			"replicationCondition": "",
-			"metadata":
-			{
-			}
-		},
-		{
-			"varName": "socket",
-			"varGuid": "1E3591FE488AD4B0075AFBAFEE41954D",
-			"varType": "name",
-			"category": "Default",
-			"defaultValue": "",
-			"bIsExposed": false,
-			"bIsReadOnly": false,
-			"replicationCondition": "",
-			"metadata":
-			{
-			}
-		}
-	],
+	"variables": [],
 	"eventGraphs": [
 		{
 			"graphName": "EventGraph",
 			"graphType": "EventGraph",
-			"graphGuid": "1298D6EE4C79BBD296B0459AB041F92F",
+			"graphGuid": "A34C617741F4688BF3C023B63759AE32",
 			"nodes": []
 		}
 	],
 	"functions": [
 		{
 			"functionName": "UserConstructionScript",
-			"functionGuid": "A8B97DD24D8B0453133A28B73A55CAF3",
+			"functionGuid": "D4D589B9471911D5F41F638A8C923B25",
 			"parameters": [],
 			"returnValues": [],
 			"graph":
 			{
 				"graphName": "UserConstructionScript",
 				"graphType": "Function",
-				"graphGuid": "A8B97DD24D8B0453133A28B73A55CAF3",
+				"graphGuid": "D4D589B9471911D5F41F638A8C923B25",
 				"nodes": [
 					{
-						"nodeGuid": "77408D924416632611E91E837CA0232F",
+						"nodeGuid": "5BABECA949DB11D8754716A05B90D685",
 						"nodeClass": "K2Node_FunctionEntry",
 						"nodeTitle": "Construction Script",
 						"nodeComment": "",
@@ -67,7 +40,7 @@
 						"positionY": 0,
 						"pins": [
 							{
-								"pinId": "E192232F419A9EF0C16371B00E2F5857",
+								"pinId": "AE797A2A45D761328C2195A0355A385E",
 								"pinName": "then",
 								"direction": "output",
 								"pinType": "exec",

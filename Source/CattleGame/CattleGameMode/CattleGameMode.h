@@ -12,7 +12,7 @@
  * ACattleGameMode
  *
  * Main game mode for CattleGame.
- * Sets up the custom GameState class. Animal spawning is handled by AAnimalSpawner in the level.
+ * Main game mode for CattleGame.
  */
 UCLASS()
 class CATTLEGAME_API ACattleGameMode : public AGameMode

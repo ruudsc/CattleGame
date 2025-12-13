@@ -1,0 +1,118 @@
+{
+	"metadata":
+	{
+		"blueprintName": "BP_Bison",
+		"blueprintPath": "/Game/Characters/Animals/Bison/BP_Bison.BP_Bison",
+		"blueprintType": "Normal",
+		"parentClass": "/Script/CattleGame.CattleAnimal",
+		"generatedClass": "BP_Bison_C",
+		"engineVersion": "++UE5+Release-5.7-CL-48512491",
+		"serializerVersion": "2.0.0",
+		"exportTimestamp": "2025.12.12-23.38.16"
+	},
+	"variables": [],
+	"eventGraphs": [
+		{
+			"graphName": "EventGraph",
+			"graphType": "EventGraph",
+			"graphGuid": "5449EAAC4F0A6AE953465694862EC000",
+			"nodes": []
+		}
+	],
+	"functions": [
+		{
+			"functionName": "UserConstructionScript",
+			"functionGuid": "6F938A2849BFEA0B22FCC99A7BF93E6F",
+			"parameters": [],
+			"returnValues": [],
+			"graph":
+			{
+				"graphName": "UserConstructionScript",
+				"graphType": "Function",
+				"graphGuid": "6F938A2849BFEA0B22FCC99A7BF93E6F",
+				"nodes": [
+					{
+						"nodeGuid": "53F022F74309FFCD13B4E6B25BDB8B63",
+						"nodeClass": "K2Node_FunctionEntry",
+						"nodeTitle": "Construction Script",
+						"nodeComment": "",
+						"positionX": 0,
+						"positionY": 0,
+						"pins": [
+							{
+								"pinId": "A07BBC8643A50F97D52E04AEA42E072C",
+								"pinName": "then",
+								"direction": "output",
+								"pinType": "exec",
+								"defaultValue": "",
+								"linkedTo": []
+							}
+						],
+						"functionReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"eventReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"variableReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"delegateReference":
+						{
+							"memberName": "",
+							"memberParentClass": "",
+							"memberGuid": "",
+							"bIsSelfContext": false,
+							"bIsConstFunc": false,
+							"bIsLocalScope": false
+						},
+						"targetClass": "",
+						"spawnClass": "",
+						"enumType": "",
+						"structType": "",
+						"macroReference": "",
+						"timelineName": "",
+						"literalValue": "",
+						"customEventName": "",
+						"inputActionName": "",
+						"inputKey": "",
+						"bIsPure": false,
+						"bIsLatent": false,
+						"bSelfContext": false,
+						"nodeSpecificData":
+						{
+							"FunctionName": "UserConstructionScript",
+							"IsNodePure": "false"
+						}
+					}
+				]
+			},
+			"bIsStatic": false,
+			"bIsPure": false,
+			"bIsConst": false
+		}
+	],
+	"macros": [],
+	"components": [],
+	"implementedInterfaces": [],
+	"hardDependencies": [],
+	"softDependencies": []
+}
