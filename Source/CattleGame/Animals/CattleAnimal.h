@@ -77,6 +77,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Cattle Animal|Fear")
 	float GetFearPercent() const;
 
+	// ===== Lasso Reactions =====
+
+	/** Check if animal is currently lassoed */
+	UFUNCTION(BlueprintCallable, Category = "Cattle Animal|Lasso")
+	bool IsLassoed() const { return bIsLassoed; }
+
+	/** Called when this animal is captured by a lasso */
+	UFUNCTION()
+	void OnLassoCaptured(AActor *LassoOwner);
+
+	/** Called when this animal is released from a lasso */
+	UFUNCTION()
+	void OnLassoReleased();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -138,9 +152,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cattle Animal|Lasso")
 	FName LassoAttachSocket = FName("pelvis");
 
+	/** Fear to add when lassoed */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cattle Animal|Lasso")
+	float LassoFearAmount = 50.0f;
+
 private:
 	/** Timer for area influence updates */
 	float AreaUpdateTimer = 0.0f;
+
+	/** Is currently lassoed */
+	bool bIsLassoed = false;
 
 	/** Cached area subsystem reference */
 	UPROPERTY(Transient)

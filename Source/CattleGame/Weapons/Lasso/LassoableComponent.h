@@ -5,12 +5,11 @@
 #include "LassoableComponent.generated.h"
 
 class UStaticMeshComponent;
-class USplineComponent;
 
 /**
  * Lassoable Component - Marks an actor as lassoable and provides attachment metadata.
  */
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class CATTLEGAME_API ULassoableComponent : public UActorComponent
 {
 	GENERATED_BODY()
@@ -19,35 +18,16 @@ public:
 	ULassoableComponent();
 
 	virtual void BeginPlay() override;
-	virtual void OnRegister() override;
-
-	// ===== PROCEDURAL WRAP =====
-
-	/** Spline defining the wrap path (e.g., around neck) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Lasso|Wrap")
-	TObjectPtr<USplineComponent> WrapSpline;
-
-	/** Actor class to spawn for procedural wrap (must have SplineMesh logic) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Wrap")
-	TSubclassOf<AActor> WrapLoopActorClass;
-
-	/** Temporary editor preview actor */
-	UPROPERTY()
-	TObjectPtr<AActor> EditorPreviewActor;
-
-	/** PREVIEW WRAP BUTTON - Click to test wrap shape in editor */
-	UFUNCTION(CallInEditor, Category = "Lasso|Wrap")
-	void PreviewWrap();
-
-	/** Clear the preview actor */
-	UFUNCTION(CallInEditor, Category = "Lasso|Wrap")
-	void ClearPreview();
 
 	// ===== ATTACHMENT METADATA =====
 
 	/** Socket/bone name where lasso loop should attach (e.g., "pelvis", "spine_02") */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Attachment")
 	FName AttachSocketName = FName("pelvis");
+
+	/** Socket/bone name where the rope cable end attaches (for smooth cable following) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Attachment")
+	FName RopeAttachSocketName = FName("LassoRopeAttachment");
 
 	/** Offset from socket for loop mesh placement */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lasso|Attachment")
@@ -75,7 +55,7 @@ public:
 
 	/** Called when this target is caught by a lasso */
 	UFUNCTION(BlueprintCallable, Category = "Lasso")
-	void OnCaptured(AActor* LassoWeaponOwner);
+	void OnCaptured(AActor *LassoWeaponOwner);
 
 	/** Called when this target is released from lasso */
 	UFUNCTION(BlueprintCallable, Category = "Lasso")
@@ -87,16 +67,27 @@ public:
 
 	// ===== BLUEPRINT EVENTS =====
 
-	/** Called when captured - for VFX, sound, animation triggers */
+	/** Called when captured - for VFX, sound, animation triggers (BlueprintImplementableEvent) */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Lasso|Events")
 	void OnLassoCaptured();
 
-	/** Called when released */
+	/** Called when released (BlueprintImplementableEvent) */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Lasso|Events")
 	void OnLassoReleased();
 
-protected:
-#if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-#endif
+	// ===== NATIVE DELEGATES =====
+
+	/** Native delegate for C++ classes to respond to capture */
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLassoCapturedNative, AActor *, LassoOwner);
+
+	/** Native delegate for C++ classes to respond to release */
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLassoReleasedNative);
+
+	/** Broadcast when captured - bind in C++ or Blueprint */
+	UPROPERTY(BlueprintAssignable, Category = "Lasso|Events")
+	FOnLassoCapturedNative OnCapturedDelegate;
+
+	/** Broadcast when released - bind in C++ or Blueprint */
+	UPROPERTY(BlueprintAssignable, Category = "Lasso|Events")
+	FOnLassoReleasedNative OnReleasedDelegate;
 };

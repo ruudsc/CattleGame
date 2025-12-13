@@ -33,16 +33,16 @@ public:
 
 	/** Launch the projectile with initial direction */
 	UFUNCTION(BlueprintCallable, Category = "Lasso|Projectile")
-	void Launch(const FVector& Direction);
+	void Launch(const FVector &Direction);
 
 	/** Set owning lasso weapon for callbacks */
-	void SetLassoWeapon(ALasso* Weapon) { LassoWeapon = Weapon; }
+	void SetLassoWeapon(ALasso *Weapon) { LassoWeapon = Weapon; }
 
 	UFUNCTION(BlueprintCallable, Category = "Lasso|Projectile")
-	AActor* GetAimAssistTarget() const { return AimAssistTarget.Get(); }
+	AActor *GetAimAssistTarget() const { return AimAssistTarget.Get(); }
 
 	/** Get the visual rope loop mesh */
-	UStaticMeshComponent* GetRopeLoopMesh() const { return RopeLoopMesh; }
+	UStaticMeshComponent *GetRopeLoopMesh() const { return RopeLoopMesh; }
 
 protected:
 	// ===== COMPONENTS =====
@@ -102,30 +102,28 @@ protected:
 	float FlightTime = 0.0f;
 
 	/** Has already hit something */
-	/** Has already hit something */
-	/** Has already hit something */
 	bool bHasHit = false;
 
 private:
 	/** Handle collision with actors */
 	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, 
-		UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	void OnHit(UPrimitiveComponent *HitComponent, AActor *OtherActor,
+			   UPrimitiveComponent *OtherComp, FVector NormalImpulse, const FHitResult &Hit);
 
 	/** Handle overlap (for aim assist detection) */
 	UFUNCTION()
-	void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	void OnOverlapBegin(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor,
+						UPrimitiveComponent *OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult);
 
 	/** Update aim assist - find and track best target */
 	void UpdateAimAssist(float DeltaTime);
 
 	/** Check if actor is a valid lasso target */
-	bool IsValidTarget(AActor* Actor) const;
+	bool IsValidTarget(AActor *Actor) const;
 
 	/** Notify weapon of hit or miss */
-	void OnTargetHit(AActor* Target);
+	void OnTargetHit(AActor *Target);
 	void OnTargetMissed();
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
 };

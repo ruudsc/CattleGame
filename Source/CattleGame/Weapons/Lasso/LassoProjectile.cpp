@@ -52,6 +52,14 @@ void ALassoProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Ignore collision with owner (the player who threw the lasso)
+	if (AActor *OwnerActor = GetOwner())
+	{
+		HitSphere->MoveIgnoreActors.Add(OwnerActor);
+		UE_LOG(LogLasso, Log, TEXT("LassoProjectile::BeginPlay - Ignoring collision with owner: %s"),
+			   *GetNameSafe(OwnerActor));
+	}
+
 	// Bind collision events
 	HitSphere->OnComponentHit.AddDynamic(this, &ALassoProjectile::OnHit);
 	HitSphere->OnComponentBeginOverlap.AddDynamic(this, &ALassoProjectile::OnOverlapBegin);
@@ -112,7 +120,7 @@ void ALassoProjectile::Launch(const FVector &Direction)
 	// Set velocity
 	ProjectileMovement->Velocity = Direction.GetSafeNormal() * InitialSpeed;
 
-	UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::Launch - Launched! Speed=%.0f, Gravity=%.2f, MaxFlight=%.1fs, AimAssist(radius=%.0f, angle=%.0f)"),
+	UE_LOG(LogLasso, Log, TEXT("LassoProjectile::Launch - Launched! Speed=%.0f, Gravity=%.2f, MaxFlight=%.1fs, AimAssist(radius=%.0f, angle=%.0f)"),
 		   InitialSpeed, GravityScale, MaxFlightTime, AimAssistRadius, AimAssistAngle);
 	UE_LOG(LogLasso, Log, TEXT("  Direction=%s, StartPos=%s"),
 		   *Direction.ToString(), *GetActorLocation().ToString());
@@ -243,7 +251,7 @@ void ALassoProjectile::OnHit(UPrimitiveComponent *HitComponent, AActor *OtherAct
 
 	if (IsValidTarget(OtherActor))
 	{
-		UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::OnHit - VALID TARGET HIT: %s"), *GetNameSafe(OtherActor));
+		UE_LOG(LogLasso, Log, TEXT("LassoProjectile::OnHit - VALID TARGET HIT: %s"), *GetNameSafe(OtherActor));
 		OnTargetHit(OtherActor);
 	}
 	else
@@ -268,7 +276,7 @@ void ALassoProjectile::OnOverlapBegin(UPrimitiveComponent *OverlappedComponent, 
 
 	if (IsValidTarget(OtherActor))
 	{
-		UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::OnOverlapBegin - VALID TARGET OVERLAP: %s"), *GetNameSafe(OtherActor));
+		UE_LOG(LogLasso, Log, TEXT("LassoProjectile::OnOverlapBegin - VALID TARGET OVERLAP: %s"), *GetNameSafe(OtherActor));
 		OnTargetHit(OtherActor);
 	}
 	else
@@ -279,7 +287,7 @@ void ALassoProjectile::OnOverlapBegin(UPrimitiveComponent *OverlappedComponent, 
 
 void ALassoProjectile::OnTargetHit(AActor *Target)
 {
-	UE_LOG(LogLasso, Warning, TEXT("LassoProjectile::OnTargetHit - Processing hit on %s at %s, FlightTime=%.2fs"),
+	UE_LOG(LogLasso, Log, TEXT("LassoProjectile::OnTargetHit - Processing hit on %s at %s, FlightTime=%.2fs"),
 		   *GetNameSafe(Target), *GetActorLocation().ToString(), FlightTime);
 
 	bHasHit = true;
