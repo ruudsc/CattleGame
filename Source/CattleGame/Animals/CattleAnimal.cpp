@@ -51,6 +51,13 @@ void ACattleAnimal::BeginPlay()
 		CachedAreaSubsystem = World->GetSubsystem<UCattleAreaSubsystem>();
 	}
 
+	// Bind lasso capture/release delegates
+	if (LassoableComponent)
+	{
+		LassoableComponent->OnCapturedDelegate.AddDynamic(this, &ACattleAnimal::OnLassoCaptured);
+		LassoableComponent->OnReleasedDelegate.AddDynamic(this, &ACattleAnimal::OnLassoReleased);
+	}
+
 	// Initialize ability system
 	InitializeAbilitySystem();
 
@@ -279,4 +286,37 @@ float ACattleAnimal::GetFearPercent() const
 		return AnimalAttributes->GetFearPercent();
 	}
 	return 0.0f;
+}
+
+void ACattleAnimal::OnLassoCaptured(AActor *LassoOwner)
+{
+	bIsLassoed = true;
+
+	// Add fear when captured
+	AddFear(LassoFearAmount);
+
+	// Switch to restricted movement mode while lassoed
+	if (AnimalMovement)
+	{
+		// Use panic speed but movement is constrained by lasso
+		AnimalMovement->SetMovementMode_Panic();
+	}
+}
+
+void ACattleAnimal::OnLassoReleased()
+{
+	bIsLassoed = false;
+
+	// Return to normal movement mode
+	if (AnimalMovement)
+	{
+		if (IsPanicked())
+		{
+			AnimalMovement->SetMovementMode_Panic();
+		}
+		else
+		{
+			AnimalMovement->SetMovementMode_Walking();
+		}
+	}
 }

@@ -34,14 +34,14 @@ void UGA_LassoThrow::ActivateAbility(const FGameplayAbilitySpecHandle Handle, co
 	{
 	case ELassoState::Idle:
 		// Throw the lasso
-		UE_LOG(LogLasso, Warning, TEXT("GA_LassoThrow::ActivateAbility - Initiating THROW"));
+		UE_LOG(LogLasso, Log, TEXT("GA_LassoThrow::ActivateAbility - Initiating THROW"));
 		ExecuteThrow();
 		// ExecuteThrow calls EndAbility
 		break;
 
 	case ELassoState::Tethered:
 		// Start pulling - ability stays active until input released
-		UE_LOG(LogLasso, Warning, TEXT("GA_LassoThrow::ActivateAbility - Initiating PULL (ability stays active)"));
+		UE_LOG(LogLasso, Log, TEXT("GA_LassoThrow::ActivateAbility - Initiating PULL (ability stays active)"));
 		bIsPullMode = true;
 		LassoWeapon->StartPulling();
 		// Don't end ability here - it will end when input is released (InputReleased or EndAbility called externally)
@@ -153,7 +153,7 @@ void UGA_LassoThrow::ExecuteThrow()
 
 	FVector LaunchDirection = Character->GetControlRotation().Vector();
 
-	UE_LOG(LogLasso, Warning, TEXT("GA_LassoThrow::ExecuteThrow - Throwing lasso"));
+	UE_LOG(LogLasso, Log, TEXT("GA_LassoThrow::ExecuteThrow - Throwing lasso"));
 	UE_LOG(LogLasso, Log, TEXT("  SpawnLocation: %s"), *SpawnLocation.ToString());
 	UE_LOG(LogLasso, Log, TEXT("  LaunchDirection: %s (from control rotation %s)"),
 		   *LaunchDirection.ToString(), *Character->GetControlRotation().ToString());

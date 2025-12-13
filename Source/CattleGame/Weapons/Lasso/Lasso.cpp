@@ -1,10 +1,10 @@
 #include "Lasso.h"
 #include "LassoProjectile.h"
 #include "LassoableComponent.h"
-#include "LassoLoopActor.h"
 #include "CableComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Components/SplineComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "CattleGame/Character/CattleCharacter.h"
 #include "CattleGame/Animals/CattleAnimal.h"
@@ -36,14 +36,16 @@ ALasso::ALasso()
 	RopeCable = CreateDefaultSubobject<UCableComponent>(TEXT("RopeCable"));
 	RopeCable->SetupAttachment(RootComponent);
 	RopeCable->bAttachStart = true;
-	RopeCable->bAttachEnd = false;
-	RopeCable->CableLength = 100.0f;
-	RopeCable->NumSegments = 10;
+	RopeCable->bAttachEnd = false;	// We'll attach dynamically when tethered
+	RopeCable->CableLength = 50.0f; // Short initial length, will be updated dynamically
+	RopeCable->NumSegments = 8;		// Fewer segments = more stable
 	RopeCable->CableWidth = 3.0f;
-	RopeCable->bEnableStiffness = false;
-	RopeCable->SetEnableGravity(false); // No gravity sag simulation
-	RopeCable->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	RopeCable->SetVisibility(false); // Hidden until tethered
+	RopeCable->bEnableStiffness = true;								// Enable for taut rope look
+	RopeCable->SubstepTime = 0.02f;									// More frequent simulation steps
+	RopeCable->SolverIterations = 8;								// More iterations for stability
+	RopeCable->SetEnableGravity(false);								// No gravity sag simulation
+	RopeCable->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Visual only, no collision
+	RopeCable->SetVisibility(false);								// Hidden until tethered
 }
 
 void ALasso::Tick(float DeltaTime)
@@ -72,6 +74,9 @@ void ALasso::Tick(float DeltaTime)
 
 	// Update cable visual on all instances
 	UpdateCableVisual();
+
+	// Increment log throttle counter (logs fire when counter == 0, then reset every 60 ticks ~1 second)
+	LassoTickLogCounter = (LassoTickLogCounter + 1) % 60;
 }
 
 // ===== WEAPON INTERFACE =====
@@ -93,7 +98,7 @@ void ALasso::StartPulling()
 	if (CurrentState == ELassoState::Tethered && !bIsPulling)
 	{
 		bIsPulling = true;
-		UE_LOG(LogLasso, Warning, TEXT("Lasso::StartPulling - Started pulling target %s, ConstraintLength=%.1f"),
+		UE_LOG(LogLasso, Log, TEXT("Lasso::StartPulling - Started pulling target %s, ConstraintLength=%.1f"),
 			   *GetNameSafe(TetheredTarget), ConstraintLength);
 	}
 	else
@@ -108,7 +113,7 @@ void ALasso::StopPulling()
 	if (bIsPulling)
 	{
 		bIsPulling = false;
-		UE_LOG(LogLasso, Warning, TEXT("Lasso::StopPulling - Stopped pulling, final ConstraintLength=%.1f"),
+		UE_LOG(LogLasso, Log, TEXT("Lasso::StopPulling - Stopped pulling, final ConstraintLength=%.1f"),
 			   ConstraintLength);
 	}
 }
@@ -129,7 +134,7 @@ void ALasso::ReleaseTether()
 		return;
 	}
 
-	UE_LOG(LogLasso, Warning, TEXT("Lasso::ReleaseTether - Releasing target %s"), *GetNameSafe(TetheredTarget));
+	UE_LOG(LogLasso, Log, TEXT("Lasso::ReleaseTether - Releasing target %s"), *GetNameSafe(TetheredTarget));
 
 	// Notify target before clearing
 	if (TetheredTarget)
@@ -153,7 +158,7 @@ void ALasso::ReleaseTether()
 
 void ALasso::ForceReset()
 {
-	UE_LOG(LogLasso, Warning, TEXT("Lasso::ForceReset - Hard reset from State=%d, Target=%s"),
+	UE_LOG(LogLasso, Log, TEXT("Lasso::ForceReset - Hard reset from State=%d, Target=%s"),
 		   (int32)CurrentState, *GetNameSafe(TetheredTarget));
 
 	DestroyProjectile();
@@ -180,7 +185,7 @@ void ALasso::OnProjectileHitTarget(AActor *Target)
 		return;
 	}
 
-	UE_LOG(LogLasso, Warning, TEXT("Lasso::OnProjectileHitTarget - CAPTURED target %s at location %s"),
+	UE_LOG(LogLasso, Log, TEXT("Lasso::OnProjectileHitTarget - CAPTURED target %s at location %s"),
 		   *GetNameSafe(Target), *Target->GetActorLocation().ToString());
 
 	TetheredTarget = Target;
@@ -235,7 +240,7 @@ void ALasso::OnLassoThrown_Implementation()
 
 void ALasso::OnTargetCaptured_Implementation(AActor *Target)
 {
-	UE_LOG(LogLasso, Warning, TEXT("Lasso::OnTargetCaptured - Target=%s, ConstraintLength=%.1f"),
+	UE_LOG(LogLasso, Log, TEXT("Lasso::OnTargetCaptured - Target=%s, ConstraintLength=%.1f"),
 		   *GetNameSafe(Target), ConstraintLength);
 }
 
@@ -262,7 +267,7 @@ void ALasso::ServerFire_Implementation(const FVector_NetQuantize &SpawnLocation,
 		return;
 	}
 
-	UE_LOG(LogLasso, Warning, TEXT("Lasso::ServerFire - Spawning projectile at %s, direction %s"),
+	UE_LOG(LogLasso, Log, TEXT("Lasso::ServerFire - Spawning projectile at %s, direction %s"),
 		   *FVector(SpawnLocation).ToString(), *FVector(LaunchDirection).ToString());
 
 	SpawnProjectile(SpawnLocation, LaunchDirection);
@@ -323,7 +328,7 @@ void ALasso::SetState(ELassoState NewState)
 	CurrentState = NewState;
 
 	const TCHAR *StateNames[] = {TEXT("Idle"), TEXT("Throwing"), TEXT("Tethered"), TEXT("Retracting")};
-	UE_LOG(LogLasso, Warning, TEXT("Lasso::SetState - Transition: %s -> %s"),
+	UE_LOG(LogLasso, Log, TEXT("Lasso::SetState - Transition: %s -> %s"),
 		   StateNames[(int32)OldState], StateNames[(int32)NewState]);
 
 	// State enter logic
@@ -487,65 +492,153 @@ void ALasso::ApplyConstraintForce(float DeltaTime)
 	}
 
 	// Apply velocity to target (toward owner)
-	// Use LaunchCharacter which works well with AI movement
-	if (TargetChar && TargetMovement)
-	{
-		FVector TargetVelocityAdd = -VelocityChange * TargetRatio;
+	// Try CattleAnimal's physics impulse first for smoother integration with AI
+	FVector TargetImpulse = -VelocityChange * TargetRatio;
 
-		// LaunchCharacter bypasses AI movement overrides
-		// XYOverride=false means add to existing, ZOverride=false means add to existing
-		TargetChar->LaunchCharacter(TargetVelocityAdd, false, false);
+	if (ACattleAnimal *CattleTarget = Cast<ACattleAnimal>(TetheredTarget))
+	{
+		// Use the animal's physics impulse system for smoother movement
+		CattleTarget->ApplyPhysicsImpulse(TargetImpulse, true); // bVelocityChange = true
 
 		if (LassoTickLogCounter == 0)
 		{
-			UE_LOG(LogLasso, Log, TEXT("  Target LaunchCharacter: %s (velocity add toward owner)"),
-				   *TargetVelocityAdd.ToString());
+			UE_LOG(LogLasso, Verbose, TEXT("  Target ApplyPhysicsImpulse: %s (CattleAnimal)"),
+				   *TargetImpulse.ToString());
+		}
+	}
+	else if (TargetChar && TargetMovement)
+	{
+		// Fallback for non-cattle characters: direct velocity modification
+		TargetMovement->Velocity += TargetImpulse;
+
+		if (LassoTickLogCounter == 0)
+		{
+			UE_LOG(LogLasso, Verbose, TEXT("  Target velocity add: %s (generic character)"),
+				   *TargetImpulse.ToString());
 		}
 	}
 }
 
 void ALasso::UpdateCableVisual()
 {
-	if (!RopeCable)
+	if (!RopeCable || !OwnerCharacter)
 	{
 		return;
 	}
 
+	// Cable start always follows player hand
+	FVector StartPoint = OwnerCharacter->GetActorLocation() + FVector(0, 0, 50);
+	RopeCable->SetWorldLocation(StartPoint);
+
 	if (CurrentState == ELassoState::Throwing && ActiveProjectile)
 	{
-		// Cable start: hand/weapon position
-		RopeCable->SetWorldLocation(OwnerCharacter->GetActorLocation() + FVector(0, 0, 50));
-
-		// Cable end: connect to visual loop mesh on projectile
-		FVector EndPoint = ActiveProjectile->GetActorLocation();
+		// During throw: attach cable end to the projectile's loop mesh
 		if (UStaticMeshComponent *LoopMesh = ActiveProjectile->GetRopeLoopMesh())
 		{
-			EndPoint = LoopMesh->GetComponentLocation();
+			RopeCable->SetAttachEndTo(ActiveProjectile, NAME_None, NAME_None);
+			RopeCable->SetAttachEndToComponent(LoopMesh);
+
+			if (LassoTickLogCounter == 0)
+			{
+				UE_LOG(LogLasso, Verbose, TEXT("UpdateCableVisual [Throwing]: Attached to projectile LoopMesh at %s"),
+					   *LoopMesh->GetComponentLocation().ToString());
+			}
 		}
-
-		RopeCable->EndLocation = RopeCable->GetComponentTransform().InverseTransformPosition(EndPoint);
-
-		// Set length to distance so it's taut/straight during throw
-		float Distance = FVector::Dist(OwnerCharacter->GetActorLocation(), EndPoint);
-		RopeCable->CableLength = Distance;
-	}
-	else if (CurrentState == ELassoState::Tethered && TetheredTarget && OwnerCharacter)
-	{
-		// Cable start: hand/weapon position
-		RopeCable->SetWorldLocation(OwnerCharacter->GetActorLocation() + FVector(0, 0, 50));
-
-		// Cable end: connect to loop mesh if available, otherwise target
-		FVector EndPoint = TetheredTarget->GetActorLocation();
-		if (SpawnedLoopMesh)
+		else
 		{
-			EndPoint = SpawnedLoopMesh->GetActorLocation();
+			// Fallback: attach to projectile root
+			RopeCable->SetAttachEndTo(ActiveProjectile, NAME_None, NAME_None);
+
+			if (LassoTickLogCounter == 0)
+			{
+				UE_LOG(LogLasso, Verbose, TEXT("UpdateCableVisual [Throwing]: No LoopMesh, attached to projectile root at %s"),
+					   *ActiveProjectile->GetActorLocation().ToString());
+			}
 		}
 
-		RopeCable->EndLocation = RopeCable->GetComponentTransform().InverseTransformPosition(EndPoint);
+		// Update cable length to actual distance
+		float Distance = FVector::Dist(StartPoint, ActiveProjectile->GetActorLocation());
+		RopeCable->CableLength = FMath::Max(Distance, 10.0f);
+	}
+	else if (CurrentState == ELassoState::Tethered && TetheredTarget)
+	{
+		// During tether: attach cable end to the target's socket
+		FName SocketName = NAME_None;
 
-		// Adjust cable length based on distance
-		float Distance = FVector::Dist(OwnerCharacter->GetActorLocation(), EndPoint);
-		RopeCable->CableLength = Distance;
+		// Get socket name from LassoableComponent if available
+		if (ULassoableComponent *Lassoable = TetheredTarget->FindComponentByClass<ULassoableComponent>())
+		{
+			SocketName = Lassoable->RopeAttachSocketName;
+		}
+
+		// Try to attach to skeletal mesh socket first
+		if (ACharacter *TargetChar = Cast<ACharacter>(TetheredTarget))
+		{
+			if (USkeletalMeshComponent *Mesh = TargetChar->GetMesh())
+			{
+				// Check if socket exists, otherwise fall back to bone or root
+				if (Mesh->DoesSocketExist(SocketName))
+				{
+					RopeCable->SetAttachEndTo(TetheredTarget, FName("Mesh"), SocketName);
+
+					if (LassoTickLogCounter == 0)
+					{
+						FVector SocketLoc = Mesh->GetSocketLocation(SocketName);
+						UE_LOG(LogLasso, Log, TEXT("UpdateCableVisual [Tethered]: Socket '%s' EXISTS on %s, attached at %s"),
+							   *SocketName.ToString(), *GetNameSafe(TetheredTarget), *SocketLoc.ToString());
+					}
+				}
+				else
+				{
+					// Fallback: attach to mesh component without socket
+					RopeCable->SetAttachEndToComponent(Mesh);
+
+					if (LassoTickLogCounter == 0)
+					{
+						UE_LOG(LogLasso, Warning, TEXT("UpdateCableVisual [Tethered]: Socket '%s' NOT FOUND on %s, falling back to Mesh component at %s"),
+							   *SocketName.ToString(), *GetNameSafe(TetheredTarget), *Mesh->GetComponentLocation().ToString());
+					}
+				}
+			}
+			else
+			{
+				RopeCable->SetAttachEndTo(TetheredTarget, NAME_None, NAME_None);
+
+				if (LassoTickLogCounter == 0)
+				{
+					UE_LOG(LogLasso, Warning, TEXT("UpdateCableVisual [Tethered]: No SkeletalMesh on %s, attached to actor root"),
+						   *GetNameSafe(TetheredTarget));
+				}
+			}
+		}
+		else
+		{
+			// Non-character: attach to root component
+			RopeCable->SetAttachEndTo(TetheredTarget, NAME_None, NAME_None);
+
+			if (LassoTickLogCounter == 0)
+			{
+				UE_LOG(LogLasso, Log, TEXT("UpdateCableVisual [Tethered]: Non-character target %s, attached to root at %s"),
+					   *GetNameSafe(TetheredTarget), *TetheredTarget->GetActorLocation().ToString());
+			}
+		}
+
+		// Update cable length to actual distance
+		FVector EndPoint = TetheredTarget->GetActorLocation();
+		float Distance = FVector::Dist(StartPoint, EndPoint);
+		RopeCable->CableLength = FMath::Max(Distance, 10.0f);
+
+		if (LassoTickLogCounter == 0)
+		{
+			UE_LOG(LogLasso, Verbose, TEXT("UpdateCableVisual [Tethered]: CableLength=%.1f, Start=%s, End=%s"),
+				   RopeCable->CableLength, *StartPoint.ToString(), *EndPoint.ToString());
+		}
+	}
+	else if (CurrentState == ELassoState::Idle || CurrentState == ELassoState::Retracting)
+	{
+		// Detach cable end when not in use
+		RopeCable->SetAttachEndTo(nullptr, NAME_None, NAME_None);
+		RopeCable->EndLocation = FVector(0, 0, -10);
 	}
 }
 
@@ -607,25 +700,8 @@ void ALasso::SpawnLoopMeshOnTarget(AActor *Target)
 	// Get attachment transform from LassoableComponent if available
 	FTransform SpawnTransform = FTransform::Identity;
 
-	// Try procedural wrap first
 	if (ULassoableComponent *Lassoable = Target->FindComponentByClass<ULassoableComponent>())
 	{
-		if (Lassoable->WrapLoopActorClass && Lassoable->WrapSpline)
-		{
-			// Spawn procedural loop
-			FTransform SplineTransform = Lassoable->WrapSpline->GetComponentTransform();
-			SpawnedLoopMesh = GetWorld()->SpawnActor<AActor>(Lassoable->WrapLoopActorClass, SplineTransform);
-
-			if (ALassoLoopActor *LoopActor = Cast<ALassoLoopActor>(SpawnedLoopMesh))
-			{
-				LoopActor->AttachToComponent(Lassoable->WrapSpline, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-				LoopActor->InitFromSpline(Lassoable->WrapSpline);
-				UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnLoopMeshOnTarget - Procedural loop spawned on %s"), *GetNameSafe(Target));
-				return;
-			}
-		}
-
-		// If no procedural setup, check for simple attachment transform
 		SpawnTransform = Lassoable->GetLoopAttachTransform();
 		UE_LOG(LogLasso, Verbose, TEXT("Lasso::SpawnLoopMeshOnTarget - Using LassoableComponent transform: %s"),
 			   *SpawnTransform.ToString());
@@ -637,33 +713,31 @@ void ALasso::SpawnLoopMeshOnTarget(AActor *Target)
 		UE_LOG(LogLasso, Verbose, TEXT("Lasso::SpawnLoopMeshOnTarget - No LassoableComponent, using target location"));
 	}
 
-	// Spawn the simple loop mesh actor (Fallback)
-	if (LoopMeshClass)
+	// Spawn the loop mesh actor
+	SpawnedLoopMesh = GetWorld()->SpawnActor<AActor>(LoopMeshClass, SpawnTransform);
+
+	if (SpawnedLoopMesh)
 	{
-		SpawnedLoopMesh = GetWorld()->SpawnActor<AActor>(LoopMeshClass, SpawnTransform);
+		// CRITICAL: Disable ALL collision on the loop mesh to prevent it from pushing the target
+		SpawnedLoopMesh->SetActorEnableCollision(false);
 
-		if (SpawnedLoopMesh)
+		// Also disable collision on all primitive components as a safeguard
+		TArray<UPrimitiveComponent *> PrimitiveComponents;
+		SpawnedLoopMesh->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+		for (UPrimitiveComponent *PrimComp : PrimitiveComponents)
 		{
-			// CRITICAL: Disable ALL collision on the loop mesh to prevent it from pushing the target
-			SpawnedLoopMesh->SetActorEnableCollision(false);
-
-			// Also disable collision on all primitive components as a safeguard
-			TArray<UPrimitiveComponent *> PrimitiveComponents;
-			SpawnedLoopMesh->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
-			for (UPrimitiveComponent *PrimComp : PrimitiveComponents)
-			{
-				PrimComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				UE_LOG(LogLasso, Verbose, TEXT("  Disabled collision on component: %s"), *GetNameSafe(PrimComp));
-			}
-
-			// Attach to target so it follows
-			SpawnedLoopMesh->AttachToActor(Target, FAttachmentTransformRules::KeepWorldTransform);
-			UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnLoopMeshOnTarget - Simple loop spawned on %s (collision disabled)"), *GetNameSafe(Target));
+			PrimComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			UE_LOG(LogLasso, Verbose, TEXT("  Disabled collision on component: %s"), *GetNameSafe(PrimComp));
 		}
-		else
-		{
-			UE_LOG(LogLasso, Error, TEXT("Lasso::SpawnLoopMeshOnTarget - FAILED to spawn loop mesh actor"));
-		}
+
+		// Attach to target so it follows
+		SpawnedLoopMesh->AttachToActor(Target, FAttachmentTransformRules::KeepWorldTransform);
+		UE_LOG(LogLasso, Log, TEXT("Lasso::SpawnLoopMeshOnTarget - Loop spawned on %s at %s, scale=%s (collision disabled)"),
+			   *GetNameSafe(Target), *SpawnTransform.GetLocation().ToString(), *SpawnTransform.GetScale3D().ToString());
+	}
+	else
+	{
+		UE_LOG(LogLasso, Error, TEXT("Lasso::SpawnLoopMeshOnTarget - FAILED to spawn loop mesh actor"));
 	}
 }
 

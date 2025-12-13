@@ -18,7 +18,7 @@ void UGA_LassoRelease::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 	ALasso *LassoWeapon = GetLassoWeapon();
 	if (LassoWeapon && LassoWeapon->GetLassoState() == ELassoState::Tethered)
 	{
-		UE_LOG(LogLasso, Warning, TEXT("GA_LassoRelease::ActivateAbility - Releasing tether on %s"),
+		UE_LOG(LogLasso, Log, TEXT("GA_LassoRelease::ActivateAbility - Releasing tether on %s"),
 			   *GetNameSafe(LassoWeapon->GetTetheredTarget()));
 		LassoWeapon->ReleaseTether();
 	}

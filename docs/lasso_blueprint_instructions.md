@@ -14,8 +14,7 @@ Ensure `BP_Lasso` has parent class `ALasso` (from `Lasso.h`).
 Set **Projectile Class** to `BP_LassoProjectile` (invisible arc for hit detection)
 
 ### 1.3 Configure Loop Mesh Class
-*   **Targeting Logic**: The system now prefers the **Procedural Spline Wrap** if `LassoableComponent` is configured.
-*   **Simple Loop (Fallback)**: You can still set **Loop Mesh Class** in `BP_Lasso` as a fallback.
+Set **Loop Mesh Class** to your loop mesh actor (a simple torus/ring that appears on captured targets).
 
 ### 1.4 Set Weapon Abilities
 Add to `WeaponAbilities` array:
@@ -54,6 +53,8 @@ In the **Details** panel:
 | Property | Default | Description |
 |----------|---------|-------------|
 | `InitialSpeed` | 2500 | Throw velocity |
+| `GravityScale` | 0.5 | Arc curvature (0 = straight, 1 = full gravity) |
+| `MaxFlightTime` | 1.5 | Auto-miss after this many seconds |
 | `AimAssistRadius` | 200 | Detection sphere radius |
 | `AimAssistAngle` | 30 | Cone half-angle (degrees) |
 | `AimAssistLerpSpeed` | 8 | How quickly projectile curves to target |
@@ -67,20 +68,31 @@ In the **Details** panel:
 
 ## 3. Target Configuration (Lassoable Actors)
 
-**[NEW]** We use `LassoableComponent` instead of Tags.
+Use `LassoableComponent` to mark actors as lasso targets.
 
-### 3.1 Components
+### 3.1 Add Component
 1. Open your Cattle/NPC Character Blueprint.
 2. Add a `LassoableComponent`.
-3. (Procedural Wrap) Review the `WrapSpline` component child.
 
-### 3.2 Configure Procedural Wrap
-1. Select `LassoableComponent`.
-2. **Editor**: In the Viewport, edit the **WrapSpline** points to form a closed ring around the neck/horns.
-3. **Details**: Assign a `WrapLoopActorClass`.
-    - Create a Blueprint inheriting from `LassoLoopActor`.
-    - In that BP, assign a Rope Mesh and Material.
-4. **Preview**: Click the **Preview Wrap** button in the LassoableComponent Details panel to verifying the shape.
+### 3.2 Configure Attachment
+In the **Details** panel of `LassoableComponent`:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `AttachSocketName` | `pelvis` | Bone/socket where loop attaches |
+| `AttachOffset` | (0,0,0) | Position offset from socket |
+| `AttachRotation` | (0,0,0) | Rotation offset for loop mesh |
+| `LoopScale` | (1,1,1) | Scale of the loop mesh on this target |
+
+### 3.3 Blueprint Events
+The component provides events you can use for VFX/sound:
+- `OnLassoCaptured` - Called when this target is caught
+- `OnLassoReleased` - Called when released
+
+### 3.4 Cattle Animals
+`ACattleAnimal` automatically includes a `LassoableComponent` and reacts to being captured:
+- Adds fear (configurable via `LassoFearAmount`)
+- Switches to panic movement mode while lassoed
 
 ---
 
@@ -101,12 +113,13 @@ Ensure Enhanced Input actions are defined:
 ## 5. Testing Checklist
 
 - [ ] Equip lasso via weapon switching
-- [ ] Press primary fire → lasso throws with **Visible Loop Mesh**
-- [ ] Aim near a target → projectile curves toward it (`LassoableComponent` detection)
-- [ ] On hit → **Procedural Spline Mesh** wraps perfectly around the defined neck path
+- [ ] Press primary fire → lasso throws with visible loop mesh
+- [ ] Aim near a target → projectile curves toward it (aim assist)
+- [ ] On hit → loop mesh attaches to target at configured socket
 - [ ] Hold primary fire → both entities pulled toward each other
 - [ ] Press secondary fire → target released, rope retracts
 - [ ] Wait for cooldown → can throw again
+- [ ] Cattle animals panic when lassoed
 
 ---
 
@@ -118,4 +131,5 @@ Ensure Enhanced Input actions are defined:
 | No arc visible | Increase `GravityScale` on projectile |
 | Aim assist not working | Verify targets have `LassoableComponent` |
 | Rope not visible | Check `RopeCable` material and visibility |
-| Wrap shape is wrong | Edit `WrapSpline` in the target Blueprint and click "Preview Wrap" |
+| Loop in wrong position | Adjust `AttachSocketName` and `AttachOffset` on target's `LassoableComponent` |
+| Animal doesn't react | Ensure it's an `ACattleAnimal` or bind to `OnCapturedDelegate` |

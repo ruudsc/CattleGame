@@ -82,7 +82,7 @@ public:
 
 	/** Get tethered target */
 	UFUNCTION(BlueprintCallable, Category = "Lasso|State")
-	AActor* GetTetheredTarget() const { return TetheredTarget; }
+	AActor *GetTetheredTarget() const { return TetheredTarget; }
 
 	/** Is currently pulling? */
 	UFUNCTION(BlueprintCallable, Category = "Lasso|State")
@@ -91,7 +91,7 @@ public:
 	// ===== PROJECTILE CALLBACKS =====
 
 	/** Called by projectile on hit */
-	void OnProjectileHitTarget(AActor* Target);
+	void OnProjectileHitTarget(AActor *Target);
 
 	/** Called by projectile on miss */
 	void OnProjectileMissed();
@@ -104,7 +104,7 @@ public:
 
 	/** Called when target is caught */
 	UFUNCTION(BlueprintNativeEvent, Category = "Lasso|Events")
-	void OnTargetCaptured(AActor* Target);
+	void OnTargetCaptured(AActor *Target);
 
 	/** Called when target is released */
 	UFUNCTION(BlueprintNativeEvent, Category = "Lasso|Events")
@@ -117,7 +117,7 @@ public:
 	// ===== SERVER RPCS =====
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Lasso")
-	void ServerFire(const FVector_NetQuantize& SpawnLocation, const FVector_NetQuantizeNormal& LaunchDirection);
+	void ServerFire(const FVector_NetQuantize &SpawnLocation, const FVector_NetQuantizeNormal &LaunchDirection);
 
 	UFUNCTION(Server, Reliable)
 	void ServerReleaseTether();
@@ -163,10 +163,9 @@ protected:
 
 public:
 	/** Get the hand coil mesh component */
-	UStaticMeshComponent* GetHandCoilMesh() const { return HandCoilMesh; }
+	UStaticMeshComponent *GetHandCoilMesh() const { return HandCoilMesh; }
 
 protected:
-
 	/** Spawned loop mesh actor on target */
 	UPROPERTY(BlueprintReadOnly, Category = "Lasso|Visual")
 	TObjectPtr<AActor> SpawnedLoopMesh;
@@ -202,9 +201,12 @@ protected:
 	float CooldownRemaining = 0.0f;
 	float RetractTimer = 0.0f;
 
+	/** Counter to throttle debug logging (logs every N ticks instead of every tick) */
+	int32 LassoTickLogCounter = 0;
+
 	// ===== NETWORK =====
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
 
 	UFUNCTION()
 	void OnRep_CurrentState();
@@ -226,13 +228,13 @@ private:
 	void UpdateCableVisual();
 
 	/** Spawn projectile */
-	void SpawnProjectile(const FVector& Location, const FVector& Direction);
+	void SpawnProjectile(const FVector &Location, const FVector &Direction);
 
 	/** Destroy projectile */
 	void DestroyProjectile();
 
 	/** Spawn loop mesh on target */
-	void SpawnLoopMeshOnTarget(AActor* Target);
+	void SpawnLoopMeshOnTarget(AActor *Target);
 
 	/** Destroy spawned loop mesh */
 	void DestroyLoopMesh();
