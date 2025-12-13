@@ -32,6 +32,10 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Blackboard")
     FBlackboardKeySelector ThreatDistanceKey;
 
+    /** Key to check if being lured (skip fear when true) */
+    UPROPERTY(EditAnywhere, Category = "Blackboard")
+    FBlackboardKeySelector IsBeingLuredKey;
+
     /** Radius to scan for threats */
     UPROPERTY(EditAnywhere, Category = "Threat Detection", meta = (ClampMin = "100.0"))
     float ThreatDetectionRadius = 1500.0f;

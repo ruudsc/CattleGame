@@ -25,9 +25,16 @@ This guide walks you through setting up the behavior tree for cattle AI in Unrea
 | `FlowDirection` | Vector | Flow guide direction |
 | `HomeLocation` | Vector | Spawn location for wandering |
 | `WanderRadius` | Float | Default: 1000 |
-| `NearestThreat` | Object (Base: Actor) | **NEW** - Set by CheckNearbyThreats |
-| `ThreatDistance` | Float | **NEW** - Distance to nearest threat |
+| `NearestThreat` | Object (Base: Actor) | Set by CheckNearbyThreats |
+| `ThreatDistance` | Float | Distance to nearest threat |
 | `HerdDirection` | Vector | Output from HerdBehavior service |
+| `NearbyExplosive` | Object (Base: Actor) | **PLAYER ACTION** - Dynamite nearby |
+| `IsBeingLured` | Bool | **PLAYER ACTION** - Trumpet lure active |
+| `LurerActor` | Object (Base: Actor) | **PLAYER ACTION** - Player doing the luring |
+| `IsBeingScared` | Bool | **PLAYER ACTION** - Trumpet scare active |
+| `ScarerActor` | Object (Base: Actor) | **PLAYER ACTION** - Player doing the scaring |
+| `IsPlayerShooting` | Bool | **PLAYER ACTION** - Player firing nearby |
+| `ShooterActor` | Object (Base: Actor) | **PLAYER ACTION** - Player shooting |
 
 ---
 
@@ -47,19 +54,150 @@ This guide walks you through setting up the behavior tree for cattle AI in Unrea
 ```
 Root
 └── Selector (Main)
-    ├── [1] PANIC (Fear 0.7-1.0)
-    ├── [2] PANIC AREA
-    ├── [3] ALERT (Fear 0.3-0.7 + Threat Nearby)
-    ├── [4] FLOW GUIDE
-    ├── [5] AVOID AREA
-    └── [6] CALM (Fear 0.0-0.3) - Default
+    ├── [0] LASSOED (Highest Priority)
+    ├── [1] DYNAMITE NEARBY
+    ├── [2] TRUMPET SCARE
+    ├── [3] GUNSHOT SCARED (shooting + high fear)
+    ├── [4] GUNSHOT ALERT (shooting + low fear)
+    ├── [5] TRUMPET LURE
+    ├── [6] PANIC (Fear 0.7-1.0)
+    ├── [7] PANIC AREA
+    ├── [8] ALERT (Fear 0.3-0.7 + Threat Nearby)
+    ├── [9] FLOW GUIDE
+    ├── [10] AVOID AREA
+    └── [11] CALM (Fear 0.0-0.3) - Default
 ```
 
 ---
 
 ## Step 4: Build Each Branch
 
-### Branch 1: PANIC BEHAVIOR (Highest Priority)
+### Branch 0: LASSOED (Highest Priority)
+
+**Purpose**: Stop all AI behavior when captured by lasso
+
+1. Add **Sequence** node as FIRST child of main Selector
+2. Right-click Sequence → **Add Decorator** → `BTDecorator_IsLassoed`
+   - **Observer Aborts**: `Both` ← Immediately interrupts other behaviors
+3. Add child **Task** → `BTTask_Wait` (built-in)
+   - Wait Time: `999.0` (effectively infinite - wait until released)
+   
+> **Note**: When lassoed, the cattle's movement is controlled by the lasso physics constraint, not AI. This branch just keeps the BT occupied until released.
+
+---
+
+### Branch 1: DYNAMITE NEARBY
+
+**Purpose**: Flee from nearby fusing dynamite
+
+1. Add **Sequence** node
+2. Right-click Sequence → **Add Decorator** → `BTDecorator_IsExplosiveNearby`
+   - Nearby Explosive Key: `NearbyExplosive`
+   - **Observer Aborts**: `Both`
+3. Right-click Sequence → **Add Service** → `BTService_DetectPlayerActions`
+   - Nearby Explosive Key: `NearbyExplosive`
+   - Explosive Detection Radius: `800.0`
+4. Right-click Sequence → **Add Service** → `BTService_UpdateCattleState`
+5. Add child Task → `BTTask_FleeFromActor`
+   - Actor To Flee From Key: `NearbyExplosive`
+   - Target Location Key: `TargetLocation`
+   - Flee Distance: `1000.0`
+6. Add child Task → `BTTask_MoveTo`
+   - Blackboard Key: `TargetLocation`
+
+---
+
+### Branch 2: TRUMPET SCARE
+
+**Purpose**: Flee from player using trumpet scare
+
+1. Add **Sequence** node
+2. Right-click Sequence → **Add Decorator** → `BTDecorator_Blackboard` (built-in)
+   - Blackboard Key: `IsBeingScared`
+   - Key Query: `Is Set`
+   - **Observer Aborts**: `Both`
+3. Right-click Sequence → **Add Service** → `BTService_DetectPlayerActions`
+   - Is Being Scared Key: `IsBeingScared`
+   - Scarer Actor Key: `ScarerActor`
+4. Right-click Sequence → **Add Service** → `BTService_UpdateCattleState`
+5. Add child Task → `BTTask_FleeFromActor`
+   - Actor To Flee From Key: `ScarerActor`
+   - Target Location Key: `TargetLocation`
+   - Flee Distance: `800.0`
+6. Add child Task → `BTTask_MoveTo`
+   - Blackboard Key: `TargetLocation`
+
+---
+
+### Branch 3: GUNSHOT SCARED (High Fear + Shooting)
+
+**Purpose**: Flee in panic when scared and player is shooting
+
+1. Add **Sequence** node
+2. Right-click Sequence → **Add Decorator** → `BTDecorator_IsPlayerShooting`
+   - Is Player Shooting Key: `IsPlayerShooting`
+   - Fear Level Key: `FearLevel`
+   - Require Min Fear: `✓`
+   - Min Fear Level: `0.3`
+   - **Observer Aborts**: `Both`
+3. Right-click Sequence → **Add Service** → `BTService_DetectPlayerActions`
+4. Right-click Sequence → **Add Service** → `BTService_UpdateCattleState`
+5. Add child Task → `BTTask_FleeFromActor`
+   - Actor To Flee From Key: `ShooterActor`
+   - Target Location Key: `TargetLocation`
+   - Flee Distance: `1500.0`
+6. Add child Task → `BTTask_MoveTo`
+   - Blackboard Key: `TargetLocation`
+
+---
+
+### Branch 4: GUNSHOT ALERT (Low Fear + Shooting)
+
+**Purpose**: Look at shooter curiously when not scared
+
+1. Add **Sequence** node
+2. Right-click Sequence → **Add Decorator** → `BTDecorator_IsPlayerShooting`
+   - Is Player Shooting Key: `IsPlayerShooting`
+   - Fear Level Key: `FearLevel`
+   - Require Max Fear: `✓`
+   - Max Fear Level: `0.3`
+   - **Observer Aborts**: `Both`
+3. Right-click Sequence → **Add Service** → `BTService_DetectPlayerActions`
+4. Right-click Sequence → **Add Service** → `BTService_UpdateCattleState`
+5. Right-click Sequence → **Add Service** → `BTService_CheckNearbyThreats`
+   - (This builds fear while watching)
+6. Add child Task → `BTTask_LookAtActor`
+   - Actor To Look At Key: `ShooterActor`
+7. Add child Task → `BTTask_Wait`
+   - Wait Time: `1.0`
+
+---
+
+### Branch 5: TRUMPET LURE
+
+**Purpose**: Follow player when lured and calm enough
+
+1. Add **Sequence** node
+2. Right-click Sequence → **Add Decorator** → `BTDecorator_IsBeingLured`
+   - Is Being Lured Key: `IsBeingLured`
+   - Fear Level Key: `FearLevel`
+   - Max Fear For Lure: `0.3` (only lured when calm)
+   - **Observer Aborts**: `Both`
+3. Right-click Sequence → **Add Service** → `BTService_DetectPlayerActions`
+   - Is Being Lured Key: `IsBeingLured`
+   - Lurer Actor Key: `LurerActor`
+4. Right-click Sequence → **Add Service** → `BTService_UpdateCattleState`
+5. Add child Task → `BTTask_FollowActor`
+   - Actor To Follow Key: `LurerActor`
+   - Target Location Key: `TargetLocation`
+   - Acceptable Radius: `300.0`
+6. Add child Task → `BTTask_MoveTo`
+   - Blackboard Key: `TargetLocation`
+   - Acceptable Radius: `200.0`
+
+---
+
+### Branch 6: PANIC BEHAVIOR (High Fear)
 
 **Purpose**: Full panic mode when fear is very high
 
@@ -88,7 +226,7 @@ Root
 
 ---
 
-### Branch 2: PANIC AREA
+### Branch 7: PANIC AREA
 
 **Purpose**: Flee when inside a panic-inducing area
 
@@ -104,7 +242,7 @@ Root
 
 ---
 
-### Branch 3: ALERT BEHAVIOR (Medium Fear + Threat Nearby)
+### Branch 8: ALERT BEHAVIOR (Medium Fear + Threat Nearby)
 
 **Purpose**: Cautious behavior - maintain distance from player
 
@@ -124,7 +262,7 @@ Root
 5. Add Service → `BTService_UpdateCattleState`
 6. Add child **Selector** node for alert behaviors:
 
-#### Sub-branch 3a: Keep Distance (threat too close)
+#### Sub-branch 8a: Keep Distance (threat too close)
 1. Add **Sequence** under the Selector
 2. Add Decorator → `BTDecorator_HasNearbyThreat`
    - Max Threat Distance: `600.0`
@@ -134,7 +272,7 @@ Root
 4. Add Task → `BTTask_MoveTo`
    - Blackboard Key: `TargetLocation`
 
-#### Sub-branch 3b: Watch and Wait (threat at medium distance)
+#### Sub-branch 8b: Watch and Wait (threat at medium distance)
 1. Add **Sequence** under the Selector
 2. Add Task → `BTTask_Wait` (built-in)
    - Wait Time: `2.0`
@@ -142,7 +280,7 @@ Root
 
 ---
 
-### Branch 4: FLOW GUIDE
+### Branch 9: FLOW GUIDE
 
 **Purpose**: Follow flow guide areas
 
@@ -159,7 +297,7 @@ Root
 
 ---
 
-### Branch 5: AVOID AREA
+### Branch 10: AVOID AREA
 
 **Purpose**: Move away from avoid areas
 
@@ -174,7 +312,7 @@ Root
 
 ---
 
-### Branch 6: CALM BEHAVIOR (Default)
+### Branch 11: CALM BEHAVIOR (Default)
 
 **Purpose**: Normal grazing and wandering when calm
 
@@ -197,7 +335,7 @@ Root
    - Fear Start Distance: `500.0`
 6. Add child **Selector** for Graze/Wander:
 
-#### Sub-branch 6a: Grazing
+#### Sub-branch 11a: Grazing
 1. Add **Sequence**
 2. Add Decorator → `BTDecorator_IsInAreaType`
    - Required Area Type: `Graze` (value 10)
@@ -205,7 +343,7 @@ Root
    - Min Graze Time: `4.0`
    - Max Graze Time: `10.0`
 
-#### Sub-branch 6b: Wandering
+#### Sub-branch 11b: Wandering
 1. Add **Sequence**
 2. Add Task → `BTTask_CattleWander`
    - Min Wander Distance: `200.0`
@@ -318,6 +456,9 @@ Root
 | **BTTask_CattleGraze** | Stops movement, plays grazing for random duration |
 | **BTTask_CattleFlee** | Moves away from threat or panic area direction |
 | **BTTask_CattleFollowFlow** | Moves in the FlowDirection from area |
+| **BTTask_FleeFromActor** | Flees from a blackboard actor (FleeDistance, RandomAngleVariation) |
+| **BTTask_FollowActor** | Sets TargetLocation toward a blackboard actor (AcceptableRadius) |
+| **BTTask_LookAtActor** | Sets AI focal point toward a blackboard actor (LookDuration) |
 
 ### Services
 | Node | Description |
@@ -325,15 +466,20 @@ Root
 | **BTService_UpdateCattleState** | Syncs animal state to blackboard |
 | **BTService_CheckNearbyThreats** | Scans for players, adds fear based on proximity |
 | **BTService_HerdBehavior** | Calculates flocking direction (cohesion/alignment/separation) |
+| **BTService_DetectPlayerActions** | Detects explosives, trumpet effects, shooting; updates player action blackboard keys |
 
 ### Decorators
 | Node | Description |
 |------|-------------|
+| **BTDecorator_IsLassoed** | True if cattle is captured by lasso (highest priority) |
 | **BTDecorator_IsCattlePanicked** | True if animal panic state active |
 | **BTDecorator_IsInAreaType** | True if in specified area type |
 | **BTDecorator_HasFlowDirection** | True if flow vector has magnitude |
 | **BTDecorator_FearLevel** | True if fear within min/max range |
 | **BTDecorator_HasNearbyThreat** | True if threat within distance |
+| **BTDecorator_IsExplosiveNearby** | True if NearbyExplosive is set (dynamite proximity) |
+| **BTDecorator_IsBeingLured** | True if IsBeingLured AND fear below MaxFearForLure threshold |
+| **BTDecorator_IsPlayerShooting** | True if IsPlayerShooting with optional fear level conditions |
 
 ---
 

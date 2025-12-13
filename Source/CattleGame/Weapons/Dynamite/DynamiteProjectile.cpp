@@ -8,6 +8,8 @@
 #include "AbilitySystemGlobals.h"
 #include "GameplayCueManager.h"
 #include "CattleGame/AbilitySystem/CattleGameplayTags.h"
+#include "CattleGame/Animals/CattleAnimal.h"
+#include "Engine/OverlapResult.h"
 #include "CattleGame/CattleGame.h"
 
 ADynamiteProjectile::ADynamiteProjectile()
@@ -70,7 +72,12 @@ void ADynamiteProjectile::BeginPlay()
 void ADynamiteProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	// Update tick rate if needed for continuous effects
+
+	// Server only: Apply fear to nearby cattle while fusing
+	if (HasAuthority() && CurrentState == EDynamiteState::Fusing && FuseFearRadius > 0.0f)
+	{
+		ApplyFuseFearToNearbyCattle(DeltaTime);
+	}
 }
 
 void ADynamiteProjectile::Launch(const FVector &Direction, float Force)
@@ -200,6 +207,23 @@ void ADynamiteProjectile::Explode()
 					this,
 					UDamageType::StaticClass());
 
+				// Apply fear and impulse to cattle
+				if (ACattleAnimal *Cattle = Cast<ACattleAnimal>(HitActor))
+				{
+					Cattle->AddFear(ExplosionFearAmount);
+
+					// Calculate impulse direction away from explosion
+					FVector ImpulseDir = (Cattle->GetActorLocation() - ExplosionCenter).GetSafeNormal();
+					if (ImpulseDir.IsNearlyZero())
+					{
+						ImpulseDir = FVector(FMath::FRand() - 0.5f, FMath::FRand() - 0.5f, 0.0f).GetSafeNormal();
+					}
+					Cattle->ApplyPhysicsImpulse(ImpulseDir * ExplosionImpulseForce, true);
+
+					UE_LOG(LogGASDebug, Warning, TEXT("DynamiteProjectile::Explode - Applied fear %.0f and impulse to %s"),
+						   ExplosionFearAmount, *Cattle->GetName());
+				}
+
 				UE_LOG(LogGASDebug, Warning, TEXT("DynamiteProjectile::Explode - Damaged %s for %.0f"), *HitActor->GetName(), ExplosionDamage);
 			}
 		}
@@ -219,4 +243,37 @@ void ADynamiteProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ADynamiteProjectile, CurrentState);
+}
+
+void ADynamiteProjectile::ApplyFuseFearToNearbyCattle(float DeltaTime)
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	const FVector DynamiteLocation = GetActorLocation();
+	TArray<FOverlapResult> OverlapResults;
+	FCollisionShape SphereShape = FCollisionShape::MakeSphere(FuseFearRadius);
+
+	if (GetWorld()->OverlapMultiByChannel(
+			OverlapResults,
+			DynamiteLocation,
+			FQuat::Identity,
+			ECC_Pawn,
+			SphereShape))
+	{
+		for (const FOverlapResult &Overlap : OverlapResults)
+		{
+			if (ACattleAnimal *Cattle = Cast<ACattleAnimal>(Overlap.GetActor()))
+			{
+				// Apply fear based on proximity - closer = more fear
+				const float Distance = FVector::Dist(DynamiteLocation, Cattle->GetActorLocation());
+				const float ProximityFactor = 1.0f - (Distance / FuseFearRadius);
+				const float FearToAdd = FuseFearPerSecond * ProximityFactor * DeltaTime;
+
+				Cattle->AddFear(FearToAdd);
+			}
+		}
+	}
 }

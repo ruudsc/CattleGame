@@ -51,6 +51,20 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Stats")
 	float WeaponSpread = 0.0f; // Perfect accuracy for revolver
 
+	// ===== CATTLE FEAR PROPERTIES =====
+
+	/** Fear applied to cattle when hit directly */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Cattle")
+	float FearOnHit = 80.0f;
+
+	/** Fear applied to nearby cattle from gunshot sound */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Cattle")
+	float GunshotFearAmount = 30.0f;
+
+	/** Radius in which nearby cattle hear the gunshot */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Revolver|Cattle")
+	float GunshotFearRadius = 1500.0f;
+
 	// ===== STATE TRACKING =====
 
 	/** Is the weapon currently being reloaded? */

@@ -6,13 +6,14 @@
 #include "Trumpet.generated.h"
 
 class UStaticMeshComponent;
+class ACattleAnimal;
 
 /**
  * Trumpet Weapon - Sound-based effects with dual abilities.
  *
  * Mechanics:
- * - Primary Fire: Lure ability - attracts enemies toward player
- * - Secondary Fire: Scare ability - repels enemies away from player
+ * - Primary Fire: Lure ability - calms cattle, then attracts when calm enough
+ * - Secondary Fire: Scare ability - adds fear to cattle
  * - Hold either button to maintain effect
  * - No ammo, unlimited use
  * - Can switch between abilities while playing
@@ -25,10 +26,16 @@ class CATTLEGAME_API ATrumpet : public AWeaponBase
 public:
 	ATrumpet();
 
+	virtual void Tick(float DeltaTime) override;
+
 	// ===== WEAPON INTERFACE =====
 
 	/** Check if trumpet can play (always true) */
 	virtual bool CanFire() const;
+
+	/** Play Lure ability (primary fire) */
+	UFUNCTION(BlueprintCallable, Category = "Trumpet")
+	void PlayLure();
 
 	/** Play Scare ability (secondary fire) */
 	UFUNCTION(BlueprintCallable, Category = "Trumpet")
@@ -67,7 +74,9 @@ public:
 	UStaticMeshComponent *TrumpetMeshComponent = nullptr;
 
 protected:
-	// ===== PROPERTIES =====
+	virtual void BeginPlay() override;
+
+	// ===== STATE =====
 
 	/** Whether trumpet is currently playing */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Trumpet|State")
@@ -81,23 +90,41 @@ protected:
 
 	/** Radius of Lure effect */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trumpet|Lure")
-	float LureRadius = 800.0f;
+	float LureRadius = 1500.0f;
 
-	/** Strength of Lure attraction (force applied to targets) */
+	/** Calm applied per second while luring */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trumpet|Lure")
-	float LureStrength = 500.0f;
+	float CalmPerSecond = 25.0f;
+
+	/** Fear percentage threshold below which cattle start being attracted (0.0-1.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trumpet|Lure", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float LureAttractionThreshold = 0.3f;
+
+	/** Speed at which lured cattle move toward player */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trumpet|Lure")
+	float LureAttractionSpeed = 200.0f;
 
 	// ===== SCARE PROPERTIES =====
 
 	/** Radius of Scare effect */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trumpet|Scare")
-	float ScareRadius = 800.0f;
+	float ScareRadius = 1500.0f;
 
-	/** Strength of Scare repulsion (force applied to targets) */
+	/** Fear applied per second while scaring */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trumpet|Scare")
-	float ScareStrength = 500.0f;
+	float FearPerSecond = 40.0f;
 
 	// ===== NETWORK =====
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
+
+private:
+	/** Apply lure effects to nearby cattle */
+	void ApplyLureEffects(float DeltaTime);
+
+	/** Apply scare effects to nearby cattle */
+	void ApplyScareEffects(float DeltaTime);
+
+	/** Get all cattle within a radius using sphere overlap */
+	TArray<ACattleAnimal *> GetCattleInRadius(float Radius) const;
 };

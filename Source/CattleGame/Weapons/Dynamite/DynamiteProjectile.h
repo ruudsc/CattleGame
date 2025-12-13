@@ -109,7 +109,25 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Explosion|VFX")
 	UParticleSystem *FuseParticles;
 
-	// ===== STATE =====
+	// ===== CATTLE FEAR PROPERTIES =====
+
+	/** Fear applied to cattle in explosion radius */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Explosion|Cattle")
+	float ExplosionFearAmount = 100.0f;
+
+	/** Impulse force applied to scatter cattle */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Explosion|Cattle")
+	float ExplosionImpulseForce = 1500.0f;
+
+	/** Radius in which cattle detect the lit fuse and start fleeing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Explosion|Cattle")
+	float FuseFearRadius = 800.0f;
+
+	/** Fear applied per second to cattle near the fusing dynamite */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Explosion|Cattle")
+	float FuseFearPerSecond = 50.0f;
+
+	// ===== STATE =======
 
 	/** Current projectile state */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "State")
@@ -126,6 +144,9 @@ private:
 
 	/** Explode and apply damage */
 	void Explode();
+
+	/** Apply fear to nearby cattle while dynamite is fusing */
+	void ApplyFuseFearToNearbyCattle(float DeltaTime);
 
 	/** Get lifetime replicated properties */
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;

@@ -15,6 +15,7 @@ UBTService_CheckNearbyThreats::UBTService_CheckNearbyThreats()
 
     NearestThreatKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_CheckNearbyThreats, NearestThreatKey), AActor::StaticClass());
     ThreatDistanceKey.AddFloatFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_CheckNearbyThreats, ThreatDistanceKey));
+    IsBeingLuredKey.AddBoolFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_CheckNearbyThreats, IsBeingLuredKey));
 }
 
 void UBTService_CheckNearbyThreats::TickNode(UBehaviorTreeComponent &OwnerComp, uint8 *NodeMemory, float DeltaSeconds)
@@ -47,8 +48,14 @@ void UBTService_CheckNearbyThreats::TickNode(UBehaviorTreeComponent &OwnerComp, 
     {
         ThreatDistance = FVector::Dist(Animal->GetActorLocation(), NearestThreat->GetActorLocation());
 
-        // Add fear based on proximity
-        if (ThreatDistance < FearStartDistance)
+        // Add fear based on proximity (skip if being lured)
+        bool bIsBeingLured = false;
+        if (IsBeingLuredKey.SelectedKeyName != NAME_None)
+        {
+            bIsBeingLured = BlackboardComp->GetValueAsBool(IsBeingLuredKey.SelectedKeyName);
+        }
+
+        if (!bIsBeingLured && ThreatDistance < FearStartDistance)
         {
             const float ProximityFactor = 1.0f - (ThreatDistance / FearStartDistance);
             const float FearToAdd = MaxFearPerSecond * ProximityFactor * DeltaSeconds;
